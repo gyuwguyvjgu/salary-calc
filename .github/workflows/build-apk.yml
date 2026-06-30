@@ -30,12 +30,14 @@ jobs:
       - name: Install Capacitor dependencies
         run: npm install
 
-      - name: Sync Capacitor
-        run: npx cap sync
+      - name: Sync web assets to Android
+        run: npx cap copy
 
       - name: Build APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
