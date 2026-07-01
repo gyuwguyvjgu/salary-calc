@@ -487,9 +487,7 @@
         <tr class="highlight"><th>税前月薪合计</th><td id="rowGross" style="color:#5b3de8;">¥0.00</td></tr>
 
         <tr class="section-header"><th>📤 扣款明细</th><td></td></tr>
-        <tr class="deduct-row"><th>养老保险 · 8%</th><td id="rowPension">-¥0.00</td></tr>
-        <tr class="deduct-row"><th>医疗保险一档 · 2%</th><td id="rowMedical">-¥0.00</td></tr>
-        <tr class="deduct-row"><th>失业保险 · 0.2%</th><td id="rowUnemployment">-¥0.00</td></tr>
+        <tr class="deduct-row"><th>社保 · 深圳一档（最低基数）</th><td id="rowSocialIns">-¥521.58</td></tr>
         <tr class="deduct-row"><th>公积金 · 5% (基数3000)</th><td id="rowHousingFund">-¥0.00</td></tr>
         <tr class="deduct-row sep"><th>个人所得税（月度）</th><td id="rowTax">-¥0.00</td></tr>
         <tr class="deduct-row"><th>年终奖个税（单独计税）</th><td id="rowYEBTax">-¥0.00</td></tr>
@@ -507,10 +505,9 @@
   <!-- ── Notes ── -->
   <div class="note">
     <p><strong>📋 计算规则说明</strong></p>
-    <p>• 社保基数按税前工资计算，各险种执行深圳市<span class="highlight-num">2025年</span>缴费基数上下限</p>
+    <p>• 社保：深圳一档最低基数缴纳，固定 <span class="highlight-num">521.58元/月</span></p>
     <p>• 加班费 = 底薪 ÷ <span class="highlight-num">21.75</span> ÷ 8 × 时数 × 倍数</p>
     <p>• 个税起征点：<span class="highlight-num">5,000元/月</span>，采用七级超额累进税率预扣预缴</p>
-    <p>• 社保个人合计：养老<span class="highlight-num">8%</span> + 医疗一档<span class="highlight-num">2%</span> + 失业<span class="highlight-num">0.2%</span> = <span class="highlight-num">10.2%</span></p>
     <p>• 公积金：<span class="highlight-num">5%</span> × 固定基数 <span class="highlight-num">3,000元</span> = <span class="highlight-num">150元/月</span></p>
     <p>• 年终奖：单独计税，÷12 找对应月度税率，不与月薪合并计税</p>
   </div>
@@ -588,14 +585,12 @@ function calc() {
   var gross = base + bonus + sub + otPay;
 
   // 未输入工资时不产生任何扣款
-  var siPen, siMed, siUne, siTot, hf, tax, net;
+  var siTot, hf, tax, net;
   if (gross === 0) {
-    siPen = siMed = siUne = siTot = hf = tax = net = 0;
+    siTot = hf = tax = net = 0;
   } else {
-    siPen = calcSocialIns(gross, 'pension');
-    siMed = calcSocialIns(gross, 'medical');
-    siUne = calcSocialIns(gross, 'unemployment');
-    siTot = siPen + siMed + siUne;
+    // 社保按深圳一档最低基数缴纳，固定金额
+    siTot = 521.58;
     hf = calcHousingFund();
     var taxable = gross - siTot - hf - 5000 - specDed;
     tax = calcTax(taxable);
@@ -645,9 +640,7 @@ function calc() {
   document.getElementById('rowOT').textContent            = '¥' + fmt(otPay);
   document.getElementById('rowYEB').textContent           = '¥' + fmt(yeb);
   document.getElementById('rowGross').textContent         = '¥' + fmt(gross);
-  document.getElementById('rowPension').textContent       = '-¥' + fmt(siPen);
-  document.getElementById('rowMedical').textContent       = '-¥' + fmt(siMed);
-  document.getElementById('rowUnemployment').textContent  = '-¥' + fmt(siUne);
+  document.getElementById('rowSocialIns').textContent     = '-¥' + fmt(siTot);
   document.getElementById('rowHousingFund').textContent   = '-¥' + fmt(hf);
   document.getElementById('rowTax').textContent           = '-¥' + fmt(tax);
   document.getElementById('rowYEBTax').textContent        = '-¥' + fmt(yebTax);
