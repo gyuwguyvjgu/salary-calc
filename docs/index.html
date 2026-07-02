@@ -635,6 +635,44 @@ function getHolidayName(y, m, d) {
   return CHINESE_HOLIDAYS[key] || '';
 }
 
+// ── localStorage persistence ──
+function getCalStorageKey(y, m) {
+  return 'cal-hours-' + y + '-' + String(m).padStart(2,'0');
+}
+
+function saveCalData(y, m, d, hours) {
+  var key = getCalStorageKey(y, m);
+  var data = {};
+  try { data = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
+  data[d] = hours;
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+function loadCalData(y, m, d) {
+  var key = getCalStorageKey(y, m);
+  try {
+    var data = JSON.parse(localStorage.getItem(key) || '{}');
+    if (data.hasOwnProperty(d)) return data[d];
+  } catch(e) {}
+  return null;
+}
+
+function saveAllCalData() {
+  var key = getCalStorageKey(calYear, calMonth);
+  var data = {};
+  var firstDay = new Date(calYear, calMonth - 1, 1);
+  var lastDay = new Date(calYear, calMonth, 0);
+  for (var d = 1; d <= lastDay.getDate(); d++) {
+    var cell = document.getElementById('cell-' + calYear + '-' + calMonth + '-' + d);
+    if (cell) {
+      var inp = cell.querySelector('input');
+      var hrs = parseFloat(inp.value);
+      if (!isNaN(hrs)) data[d] = hrs;
+    }
+  }
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
 function renderCalendar() {
   var grid = document.getElementById('calendarGrid');
   var title = document.getElementById('calMonthTitle');
@@ -664,11 +702,13 @@ function renderCalendar() {
     var holName = isHol ? getHolidayName(calYear, calMonth, d) : '';
     // Default hours: weekday 8, weekend/holiday 0
     var defVal = (isHol || isWe) ? 0 : 8;
+    var saved = loadCalData(calYear, calMonth, d);
+    var val = saved !== null ? saved : defVal;
     var cellId = 'cell-' + calYear + '-' + calMonth + '-' + d;
 
     html += '<div class="' + cls + '" id="' + cellId + '">';
     html += '<div class="day-num">' + d + (holName ? '<br><span style="font-size:9px">' + holName + '</span>' : '') + '</div>';
-    html += '<input type="number" step="0.5" min="0" max="24" value="' + defVal + '" onchange="onCellChange()" oninput="onCellChange()" placeholder="' + defVal + '">';
+    html += '<input type="number" step="0.5" min="0" max="24" value="' + val + '" onchange="onCellChange()" oninput="onCellChange()" placeholder="' + defVal + '">';
     // Show small tag for hours beyond normal
     html += '<div class="tag" style="display:none" id="tag-' + cellId + '"></div>';
     html += '</div>';
@@ -687,6 +727,7 @@ function renderCalendar() {
 }
 
 function onCellChange() {
+  saveAllCalData();
   updateCalSummary();
 }
 
