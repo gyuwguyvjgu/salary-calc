@@ -2,9 +2,5 @@
   "appId": "com.salary.calc",
   "appName": "薪资计算",
   "webDir": "www",
-  "bundledWebRuntime": false,
-  "server": {
-    "url": "https://cdn.jsdelivr.net/gh/gyuwguyvjgu/salary-calc@master/docs/",
-    "cleartext": true
-  }
+  "bundledWebRuntime": false
 }
