@@ -1,0 +1,18 @@
+{
+  "name": "深圳薪资计算器",
+  "short_name": "薪资计算",
+  "description": "深圳一档社保 · 公积金5% · 自动算个税",
+  "start_url": "index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f3f0f9",
+  "theme_color": "#7c5cfc",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
