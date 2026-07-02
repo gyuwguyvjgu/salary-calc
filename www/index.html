@@ -915,8 +915,36 @@ function calc() {
   var ratio = gross > 0 ? ((siTot + hf + tax) / gross * 100) : 0;
   document.getElementById('deductRatio').textContent = ratio.toFixed(1) + '%';
   document.getElementById('ratioFill').style.width = Math.min(ratio, 100).toFixed(0) + '%';
+
+  saveFormData();
 }
 
+// ── Form persistence ──
+var FORM_FIELDS = ['baseSalary','bonus','subsidy','yearEndBonus','otWeekday','otWeekend','otHoliday',
+  'dedChildEdu','dedInfant','dedContEdu','dedMortgage','dedRent','dedElderly'];
+
+function saveFormData() {
+  var data = {};
+  FORM_FIELDS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) data[id] = el.value;
+  });
+  localStorage.setItem('salary-form-data', JSON.stringify(data));
+}
+
+function loadFormData() {
+  try {
+    var data = JSON.parse(localStorage.getItem('salary-form-data') || '{}');
+    FORM_FIELDS.forEach(function(id) {
+      if (data.hasOwnProperty(id)) {
+        var el = document.getElementById(id);
+        if (el) el.value = data[id];
+      }
+    });
+  } catch(e) {}
+}
+
+loadFormData();
 renderCalendar();
 calc();
 </script>
