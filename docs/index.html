@@ -70,8 +70,8 @@
     background: #fff;
     border: 1px solid #eeeaf5;
     border-radius: 16px;
-    padding: 28px;
-    margin-bottom: 18px;
+    padding: 20px;
+    margin-bottom: 14px;
     box-shadow: 0 2px 16px rgba(124,92,252,0.05);
   }
 
@@ -79,7 +79,7 @@
     font-size: 15px;
     font-weight: 700;
     color: #37314b;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -335,7 +335,7 @@
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; }
   .cal-day-name { font-size: 11px; color: #b0a8c4; font-weight: 600; padding: 6px 0; }
   .cal-day-name.we { color: #f4727b; }
-  .cal-cell { border-radius: 10px; padding: 4px 2px 8px; background: #faf9fd; border: 1px solid transparent; min-height: 60px; }
+  .cal-cell { border-radius: 10px; padding: 3px 1px 5px; background: #faf9fd; border: 1px solid transparent; min-height: 54px; }
   .cal-cell.weekend { background: #f8f5fa; }
   .cal-cell.holiday { background: #fff8f0; border-color: #f5a623; }
   .cal-cell.other-month { opacity: 0.3; }
@@ -357,8 +357,10 @@
   .cal-summary .sum-val.ot15    { color: #f5a623; }
   .cal-summary .sum-val.ot2     { color: #f4727b; }
   .cal-summary .sum-val.ot3     { color: #e0314f; }
-  .btn-apply { display: block; width: 100%; margin-top: 12px; padding: 10px; border: none; border-radius: 12px; background: linear-gradient(135deg, #7c5cfc, #5b8def); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn-apply { display: block; width: 100%; margin-top: 8px; padding: 10px; border: none; border-radius: 12px; background: linear-gradient(135deg, #7c5cfc, #5b8def); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
   .btn-apply:hover { opacity: 0.9; }
+  .btn-batch { flex:1; padding:6px 4px; border:1px solid #e8e4f0; border-radius:8px; background:#fff; font-size:11px; color:#5a5470; cursor:pointer; }
+  .btn-batch:hover { background:#f5f0ff; }
   @media (max-width: 500px) {
     .cal-cell { min-height: 48px; padding: 2px 1px 4px; }
     .cal-cell input { width: 34px; font-size: 11px; padding: 2px 1px; }
@@ -410,6 +412,11 @@
       <div class="sum-item"><div class="sum-val ot15" id="sumOT15">0h</div><div class="sum-label">工作日OT (1.5x)</div></div>
       <div class="sum-item"><div class="sum-val ot2" id="sumOT2">0h</div><div class="sum-label">休息日OT (2x)</div></div>
       <div class="sum-item"><div class="sum-val ot3" id="sumOT3">0h</div><div class="sum-label">节假日OT (3x)</div></div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:10px;">
+      <button class="btn-batch" onclick="batchFill('workday')">📋 工作日→8h</button>
+      <button class="btn-batch" onclick="batchFill('all')">📋 全月→8h</button>
+      <button class="btn-batch" onclick="batchFill('clear')">🗑 清空</button>
     </div>
     <button class="btn-apply" onclick="applyCalendarToSalary()">📥 套用到薪资计算</button>
   </div>
@@ -465,10 +472,12 @@
 
   <!-- ── Special Deductions ── -->
   <div class="card">
-    <div class="card-title">
+    <div class="card-title" onclick="toggleDeductions()" style="cursor:pointer;">
       <span class="icon icon-deduct">📝</span>专项附加扣除
-      <span style="font-size:11px;color:#b0a8c4;font-weight:400;margin-left:4px;">（选填，影响个税金额）</span>
+      <span style="font-size:11px;color:#b0a8c4;font-weight:400;margin-left:4px;">（选填）</span>
+      <span style="margin-left:auto;font-size:12px;color:#b0a8c4;" id="dedToggleIcon">▼</span>
     </div>
+    <div id="deductionsBody" style="display:none;">
     <div class="form-row">
       <div class="form-group">
         <label>👶 子女教育</label>
@@ -515,6 +524,7 @@
       </div>
     </div>
     <div style="font-size:11px;color:#c0bbcd;">※ 住房贷款利息与住房租金二选一，同时填写则优先取租金</div>
+    </div>
   </div>
 
   <!-- ── Results ── -->
@@ -792,6 +802,32 @@ function applyCalendarToSalary() {
   calc();
   // Scroll to results
   document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth' });
+}
+
+function batchFill(mode) {
+  var firstDay = new Date(calYear, calMonth - 1, 1);
+  var lastDay = new Date(calYear, calMonth, 0);
+  for (var d = 1; d <= lastDay.getDate(); d++) {
+    var dow = (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1) + d - 1;
+    dow = dow % 7;
+    var isWe = dow >= 5;
+    var isHol = isHoliday(calYear, calMonth, d);
+    var hrs = 0;
+    if (mode === 'workday') { hrs = (!isWe && !isHol) ? 8 : 0; }
+    else if (mode === 'all') { hrs = 8; }
+    // mode === 'clear': hrs stays 0
+    var cell = document.getElementById('cell-' + calYear + '-' + calMonth + '-' + d);
+    if (cell) { cell.querySelector('input').value = hrs; }
+    saveCalData(calYear, calMonth, d, hrs);
+  }
+  updateCalSummary();
+}
+
+function toggleDeductions() {
+  var body = document.getElementById('deductionsBody');
+  var icon = document.getElementById('dedToggleIcon');
+  if (body.style.display === 'none') { body.style.display = 'block'; icon.textContent = '▲'; }
+  else { body.style.display = 'none'; icon.textContent = '▼'; }
 }
 
 function changeMonth(delta) {
