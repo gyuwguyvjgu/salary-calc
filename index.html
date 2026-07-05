@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>深圳薪资计算器</title>
+<title>wuji薪资计算器</title>
 <meta name="theme-color" content="#7c5cfc">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -70,8 +70,8 @@
     background: #fff;
     border: 1px solid #eeeaf5;
     border-radius: 16px;
-    padding: 28px;
-    margin-bottom: 18px;
+    padding: 20px;
+    margin-bottom: 14px;
     box-shadow: 0 2px 16px rgba(124,92,252,0.05);
   }
 
@@ -79,7 +79,7 @@
     font-size: 15px;
     font-weight: 700;
     color: #37314b;
-    margin-bottom: 20px;
+    margin-bottom: 12px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -326,6 +326,47 @@
   }
   .install-banner .btn-install { background: #fff; color: #7c5cfc; }
   .install-banner .btn-close  { background: rgba(255,255,255,0.2); color: #fff; margin-left: 4px; }
+
+  /* ── Calendar ── */
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .cal-header button { width: 34px; height: 34px; border: 1px solid #e8e4f0; border-radius: 10px; background: #fff; font-size: 16px; cursor: pointer; color: #5a5470; }
+  .cal-header button:hover { background: #f5f0ff; }
+  .cal-header .cal-month { font-size: 16px; font-weight: 700; color: #37314b; }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; }
+  .cal-day-name { font-size: 11px; color: #b0a8c4; font-weight: 600; padding: 6px 0; }
+  .cal-day-name.we { color: #f4727b; }
+  .cal-cell { border-radius: 10px; padding: 3px 1px 5px; background: #faf9fd; border: 1px solid transparent; min-height: 54px; }
+  .cal-cell.weekend { background: #f8f5fa; }
+  .cal-cell.holiday { background: #fff8f0; border-color: #f5a623; }
+  .cal-cell.other-month { opacity: 0.3; }
+  .cal-cell .day-num { font-size: 11px; color: #8e8a9e; margin-bottom: 3px; }
+  .cal-cell.weekend .day-num { color: #f4727b; }
+  .cal-cell.holiday .day-num { color: #e07b00; font-weight: 700; }
+  .cal-cell.holiday .day-num::after { content: ' 🎉'; font-size: 9px; }
+  .cal-cell input { width: 42px; padding: 3px 2px; border: 1px solid #e8e4f0; border-radius: 6px; font-size: 12px; text-align: center; background: #fff; color: #2d2a3e; outline: none; }
+  .cal-cell input:focus { border-color: #7c5cfc; box-shadow: 0 0 0 2px rgba(124,92,252,0.08); }
+  .cal-cell .tag { font-size: 9px; padding: 0 4px; border-radius: 4px; display: inline-block; margin-top: 2px; }
+  .cal-cell .tag.ot15 { background: #fff0e0; color: #e07b00; }
+  .cal-cell .tag.ot2  { background: #ffe0e0; color: #d04040; }
+  .cal-cell .tag.ot3  { background: #ffe8d0; color: #c05000; }
+  .cal-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0ecf8; }
+  .cal-summary .sum-item { text-align: center; }
+  .cal-summary .sum-val { font-size: 20px; font-weight: 700; }
+  .cal-summary .sum-label { font-size: 10px; color: #b0a8c4; margin-top: 2px; }
+  .cal-summary .sum-val.normal  { color: #5b8def; }
+  .cal-summary .sum-val.ot15    { color: #f5a623; }
+  .cal-summary .sum-val.ot2     { color: #f4727b; }
+  .cal-summary .sum-val.ot3     { color: #e0314f; }
+  .btn-apply { display: block; width: 100%; margin-top: 8px; padding: 10px; border: none; border-radius: 12px; background: linear-gradient(135deg, #7c5cfc, #5b8def); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn-apply:hover { opacity: 0.9; }
+  .btn-batch { flex:1; padding:6px 4px; border:1px solid #e8e4f0; border-radius:8px; background:#fff; font-size:11px; color:#5a5470; cursor:pointer; }
+  .btn-batch:hover { background:#f5f0ff; }
+  @media (max-width: 500px) {
+    .cal-cell { min-height: 48px; padding: 2px 1px 4px; }
+    .cal-cell input { width: 34px; font-size: 11px; padding: 2px 1px; }
+    .cal-summary { grid-template-columns: repeat(2, 1fr); }
+    .cal-summary .sum-val { font-size: 16px; }
+  }
 </style>
 </head>
 <body>
@@ -342,12 +383,42 @@
   <!-- ── Header ── -->
   <div class="header">
     <div class="logo">🧮</div>
-    <h1>深圳薪资计算器</h1>
+    <h1>wuji薪资计算器</h1>
     <p class="subtitle">
       <span class="tag">深圳一档社保</span>
       <span class="tag">公积金5%</span>
       <span class="tag">自动算个税</span>
     </p>
+  </div>
+
+  <!-- ── Calendar ── -->
+  <div class="card" id="calendarCard">
+    <div class="card-title">
+      <span class="icon icon-result">📅</span>日历填工时
+    </div>
+    <div class="cal-header">
+      <button onclick="changeMonth(-1)">◀</button>
+      <span class="cal-month" id="calMonthTitle">2025年7月</span>
+      <button onclick="changeMonth(1)">▶</button>
+    </div>
+    <div class="cal-grid" id="calDayNames">
+      <div class="cal-day-name">一</div><div class="cal-day-name">二</div><div class="cal-day-name">三</div>
+      <div class="cal-day-name">四</div><div class="cal-day-name">五</div>
+      <div class="cal-day-name we">六</div><div class="cal-day-name we">日</div>
+    </div>
+    <div class="cal-grid" id="calendarGrid"></div>
+    <div class="cal-summary">
+      <div class="sum-item"><div class="sum-val normal" id="sumNormal">0h</div><div class="sum-label">正常工时</div></div>
+      <div class="sum-item"><div class="sum-val ot15" id="sumOT15">0h</div><div class="sum-label">工作日OT (1.5x)</div></div>
+      <div class="sum-item"><div class="sum-val ot2" id="sumOT2">0h</div><div class="sum-label">休息日OT (2x)</div></div>
+      <div class="sum-item"><div class="sum-val ot3" id="sumOT3">0h</div><div class="sum-label">节假日OT (3x)</div></div>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:10px;">
+      <button class="btn-batch" onclick="batchFill('workday')">📋 工作日→8h</button>
+      <button class="btn-batch" onclick="batchFill('all')">📋 全月→8h</button>
+      <button class="btn-batch" onclick="batchFill('clear')">🗑 清空</button>
+    </div>
+    <button class="btn-apply" onclick="applyCalendarToSalary()">📥 套用到薪资计算</button>
   </div>
 
   <!-- ── Salary Input ── -->
@@ -401,10 +472,12 @@
 
   <!-- ── Special Deductions ── -->
   <div class="card">
-    <div class="card-title">
+    <div class="card-title" onclick="toggleDeductions()" style="cursor:pointer;">
       <span class="icon icon-deduct">📝</span>专项附加扣除
-      <span style="font-size:11px;color:#b0a8c4;font-weight:400;margin-left:4px;">（选填，影响个税金额）</span>
+      <span style="font-size:11px;color:#b0a8c4;font-weight:400;margin-left:4px;">（选填）</span>
+      <span style="margin-left:auto;font-size:12px;color:#b0a8c4;" id="dedToggleIcon">▼</span>
     </div>
+    <div id="deductionsBody" style="display:none;">
     <div class="form-row">
       <div class="form-group">
         <label>👶 子女教育</label>
@@ -451,6 +524,7 @@
       </div>
     </div>
     <div style="font-size:11px;color:#c0bbcd;">※ 住房贷款利息与住房租金二选一，同时填写则优先取租金</div>
+    </div>
   </div>
 
   <!-- ── Results ── -->
@@ -487,9 +561,7 @@
         <tr class="highlight"><th>税前月薪合计</th><td id="rowGross" style="color:#5b3de8;">¥0.00</td></tr>
 
         <tr class="section-header"><th>📤 扣款明细</th><td></td></tr>
-        <tr class="deduct-row"><th>养老保险 · 8%</th><td id="rowPension">-¥0.00</td></tr>
-        <tr class="deduct-row"><th>医疗保险一档 · 2%</th><td id="rowMedical">-¥0.00</td></tr>
-        <tr class="deduct-row"><th>失业保险 · 0.2%</th><td id="rowUnemployment">-¥0.00</td></tr>
+        <tr class="deduct-row"><th>社保 · 深圳一档（最低基数）</th><td id="rowSocialIns">-¥521.58</td></tr>
         <tr class="deduct-row"><th>公积金 · 5% (基数3000)</th><td id="rowHousingFund">-¥0.00</td></tr>
         <tr class="deduct-row sep"><th>个人所得税（月度）</th><td id="rowTax">-¥0.00</td></tr>
         <tr class="deduct-row"><th>年终奖个税（单独计税）</th><td id="rowYEBTax">-¥0.00</td></tr>
@@ -507,10 +579,9 @@
   <!-- ── Notes ── -->
   <div class="note">
     <p><strong>📋 计算规则说明</strong></p>
-    <p>• 社保基数按税前工资计算，各险种执行深圳市<span class="highlight-num">2025年</span>缴费基数上下限</p>
+    <p>• 社保：深圳一档最低基数缴纳，固定 <span class="highlight-num">521.58元/月</span></p>
     <p>• 加班费 = 底薪 ÷ <span class="highlight-num">21.75</span> ÷ 8 × 时数 × 倍数</p>
     <p>• 个税起征点：<span class="highlight-num">5,000元/月</span>，采用七级超额累进税率预扣预缴</p>
-    <p>• 社保个人合计：养老<span class="highlight-num">8%</span> + 医疗一档<span class="highlight-num">2%</span> + 失业<span class="highlight-num">0.2%</span> = <span class="highlight-num">10.2%</span></p>
     <p>• 公积金：<span class="highlight-num">5%</span> × 固定基数 <span class="highlight-num">3,000元</span> = <span class="highlight-num">150元/月</span></p>
     <p>• 年终奖：单独计税，÷12 找对应月度税率，不与月薪合并计税</p>
   </div>
@@ -544,6 +615,234 @@ var TAX_BRACKETS = [
 ];
 
 var HOUSING_FUND_BASE = 3000;
+
+// ── Calendar State ──
+var calYear, calMonth;
+
+// 中国法定节假日 (2025-2026)
+var CHINESE_HOLIDAYS = {
+  // 2025
+  '2025-01-01': '元旦', '2025-01-28': '除夕', '2025-01-29': '春节', '2025-01-30': '春节',
+  '2025-01-31': '春节', '2025-02-01': '春节', '2025-02-02': '春节', '2025-02-03': '春节',
+  '2025-04-04': '清明', '2025-05-01': '劳动节', '2025-05-02': '劳动节',
+  '2025-05-31': '端午', '2025-10-01': '国庆', '2025-10-02': '国庆', '2025-10-03': '国庆',
+  '2025-10-06': '中秋', '2025-10-07': '国庆', '2025-10-08': '国庆',
+  // 2026
+  '2026-01-01': '元旦', '2026-02-16': '除夕', '2026-02-17': '春节', '2026-02-18': '春节',
+  '2026-02-19': '春节', '2026-02-20': '春节', '2026-02-21': '春节', '2026-02-22': '春节',
+  '2026-02-23': '春节', '2026-04-05': '清明', '2026-05-01': '劳动节',
+  '2026-06-19': '端午', '2026-09-25': '中秋', '2026-10-01': '国庆', '2026-10-02': '国庆',
+  '2026-10-05': '国庆', '2026-10-06': '国庆', '2026-10-07': '国庆',
+};
+
+function isHoliday(y, m, d) {
+  var key = y + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+  return CHINESE_HOLIDAYS.hasOwnProperty(key);
+}
+
+function getHolidayName(y, m, d) {
+  var key = y + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0');
+  return CHINESE_HOLIDAYS[key] || '';
+}
+
+// ── localStorage persistence ──
+function getCalStorageKey(y, m) {
+  return 'cal-hours-' + y + '-' + String(m).padStart(2,'0');
+}
+
+function saveCalData(y, m, d, hours) {
+  var key = getCalStorageKey(y, m);
+  var data = {};
+  try { data = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
+  data[d] = hours;
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+function loadCalData(y, m, d) {
+  var key = getCalStorageKey(y, m);
+  try {
+    var data = JSON.parse(localStorage.getItem(key) || '{}');
+    if (data.hasOwnProperty(d)) return data[d];
+  } catch(e) {}
+  return null;
+}
+
+function saveAllCalData() {
+  var key = getCalStorageKey(calYear, calMonth);
+  var data = {};
+  var firstDay = new Date(calYear, calMonth - 1, 1);
+  var lastDay = new Date(calYear, calMonth, 0);
+  for (var d = 1; d <= lastDay.getDate(); d++) {
+    var cell = document.getElementById('cell-' + calYear + '-' + calMonth + '-' + d);
+    if (cell) {
+      var inp = cell.querySelector('input');
+      var hrs = parseFloat(inp.value);
+      if (!isNaN(hrs)) data[d] = hrs;
+    }
+  }
+  localStorage.setItem(key, JSON.stringify(data));
+}
+
+function renderCalendar() {
+  var grid = document.getElementById('calendarGrid');
+  var title = document.getElementById('calMonthTitle');
+  title.textContent = calYear + '年' + calMonth + '月';
+
+  var firstDay = new Date(calYear, calMonth - 1, 1);
+  var lastDay = new Date(calYear, calMonth, 0);
+  var daysInMonth = lastDay.getDate();
+  // 0=Sun, 1=Mon, ... 6=Sat → we want Mon=0, Sun=6
+  var startDow = firstDay.getDay();
+  startDow = startDow === 0 ? 6 : startDow - 1; // Mon=0 ... Sun=6
+
+  var html = '';
+  // Empty cells before first day
+  for (var i = 0; i < startDow; i++) {
+    html += '<div class="cal-cell other-month"></div>';
+  }
+  // Day cells
+  for (var d = 1; d <= daysInMonth; d++) {
+    var dow = (startDow + d - 1) % 7; // 0=Mon ... 6=Sun
+    var isWe = dow >= 5; // Sat=5, Sun=6
+    var isHol = isHoliday(calYear, calMonth, d);
+    var cls = 'cal-cell';
+    if (isHol) cls += ' holiday';
+    else if (isWe) cls += ' weekend';
+
+    var holName = isHol ? getHolidayName(calYear, calMonth, d) : '';
+    // Default hours: weekday 8, weekend/holiday 0
+    var defVal = (isHol || isWe) ? 0 : 8;
+    var saved = loadCalData(calYear, calMonth, d);
+    var val = saved !== null ? saved : defVal;
+    var cellId = 'cell-' + calYear + '-' + calMonth + '-' + d;
+
+    html += '<div class="' + cls + '" id="' + cellId + '">';
+    html += '<div class="day-num">' + d + (holName ? '<br><span style="font-size:9px">' + holName + '</span>' : '') + '</div>';
+    html += '<input type="number" step="0.5" min="0" max="24" value="' + val + '" onchange="onCellChange()" oninput="onCellChange()" placeholder="' + defVal + '">';
+    // Show small tag for hours beyond normal
+    html += '<div class="tag" style="display:none" id="tag-' + cellId + '"></div>';
+    html += '</div>';
+  }
+  // Fill remaining cells for last row
+  var totalCells = startDow + daysInMonth;
+  var remainder = totalCells % 7;
+  if (remainder > 0 && totalCells > 7) {
+    for (var j = 0; j < 7 - remainder; j++) {
+      html += '<div class="cal-cell other-month"></div>';
+    }
+  }
+
+  grid.innerHTML = html;
+  updateCalSummary();
+}
+
+function onCellChange() {
+  saveAllCalData();
+  updateCalSummary();
+}
+
+function getCellHours() {
+  var totalNormal = 0, otWeekday = 0, otWeekend = 0, otHoliday = 0;
+  var firstDay = new Date(calYear, calMonth - 1, 1);
+  var lastDay = new Date(calYear, calMonth, 0);
+  var daysInMonth = lastDay.getDate();
+  var startDow = firstDay.getDay();
+  startDow = startDow === 0 ? 6 : startDow - 1;
+
+  for (var d = 1; d <= daysInMonth; d++) {
+    var dow = (startDow + d - 1) % 7;
+    var isWe = dow >= 5;
+    var isHol = isHoliday(calYear, calMonth, d);
+    var cellId = 'cell-' + calYear + '-' + calMonth + '-' + d;
+    var cell = document.getElementById(cellId);
+    if (!cell) continue;
+    var inp = cell.querySelector('input');
+    var hrs = parseFloat(inp.value) || 0;
+
+    if (isHol) {
+      otHoliday += hrs;
+    } else if (isWe) {
+      otWeekend += hrs;
+    } else {
+      if (hrs <= 8) {
+        totalNormal += hrs;
+      } else {
+        totalNormal += 8;
+        otWeekday += (hrs - 8);
+      }
+    }
+
+    // Update tag
+    var tag = document.getElementById('tag-' + cellId);
+    if (tag) {
+      tag.style.display = 'none';
+      if (isHol && hrs > 0) { tag.textContent = 'OTx3'; tag.className = 'tag ot3'; tag.style.display = 'inline-block'; }
+      else if (isWe && hrs > 0) { tag.textContent = 'OTx2'; tag.className = 'tag ot2'; tag.style.display = 'inline-block'; }
+      else if (!isWe && !isHol && hrs > 8) { tag.textContent = '+' + (hrs - 8).toFixed(1) + 'h OT'; tag.className = 'tag ot15'; tag.style.display = 'inline-block'; }
+    }
+  }
+  return { normal: totalNormal, ot15: otWeekday, ot2: otWeekend, ot3: otHoliday };
+}
+
+function updateCalSummary() {
+  var h = getCellHours();
+  document.getElementById('sumNormal').textContent = h.normal.toFixed(1) + 'h';
+  document.getElementById('sumOT15').textContent = h.ot15.toFixed(1) + 'h';
+  document.getElementById('sumOT2').textContent = h.ot2.toFixed(1) + 'h';
+  document.getElementById('sumOT3').textContent = h.ot3.toFixed(1) + 'h';
+}
+
+function applyCalendarToSalary() {
+  var h = getCellHours();
+  // Fill overtime hours into the salary form
+  document.getElementById('otWeekday').value = h.ot15;
+  document.getElementById('otWeekend').value = h.ot2;
+  document.getElementById('otHoliday').value = h.ot3;
+  // Trigger salary calculation
+  calc();
+  // Scroll to results
+  document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth' });
+}
+
+function batchFill(mode) {
+  var firstDay = new Date(calYear, calMonth - 1, 1);
+  var lastDay = new Date(calYear, calMonth, 0);
+  for (var d = 1; d <= lastDay.getDate(); d++) {
+    var dow = (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1) + d - 1;
+    dow = dow % 7;
+    var isWe = dow >= 5;
+    var isHol = isHoliday(calYear, calMonth, d);
+    var hrs = 0;
+    if (mode === 'workday') { hrs = (!isWe && !isHol) ? 8 : 0; }
+    else if (mode === 'all') { hrs = 8; }
+    // mode === 'clear': hrs stays 0
+    var cell = document.getElementById('cell-' + calYear + '-' + calMonth + '-' + d);
+    if (cell) { cell.querySelector('input').value = hrs; }
+    saveCalData(calYear, calMonth, d, hrs);
+  }
+  updateCalSummary();
+}
+
+function toggleDeductions() {
+  var body = document.getElementById('deductionsBody');
+  var icon = document.getElementById('dedToggleIcon');
+  if (body.style.display === 'none') { body.style.display = 'block'; icon.textContent = '▲'; }
+  else { body.style.display = 'none'; icon.textContent = '▼'; }
+}
+
+function changeMonth(delta) {
+  calMonth += delta;
+  if (calMonth > 12) { calMonth = 1; calYear++; }
+  if (calMonth < 1) { calMonth = 12; calYear--; }
+  renderCalendar();
+}
+
+// ── Init Calendar ──
+(function() {
+  var now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth() + 1;
+})();
 
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function fmt(n) { return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
@@ -588,14 +887,12 @@ function calc() {
   var gross = base + bonus + sub + otPay;
 
   // 未输入工资时不产生任何扣款
-  var siPen, siMed, siUne, siTot, hf, tax, net;
+  var siTot, hf, tax, net;
   if (gross === 0) {
-    siPen = siMed = siUne = siTot = hf = tax = net = 0;
+    siTot = hf = tax = net = 0;
   } else {
-    siPen = calcSocialIns(gross, 'pension');
-    siMed = calcSocialIns(gross, 'medical');
-    siUne = calcSocialIns(gross, 'unemployment');
-    siTot = siPen + siMed + siUne;
+    // 社保按深圳一档最低基数缴纳，固定金额
+    siTot = 521.58;
     hf = calcHousingFund();
     var taxable = gross - siTot - hf - 5000 - specDed;
     tax = calcTax(taxable);
@@ -645,9 +942,7 @@ function calc() {
   document.getElementById('rowOT').textContent            = '¥' + fmt(otPay);
   document.getElementById('rowYEB').textContent           = '¥' + fmt(yeb);
   document.getElementById('rowGross').textContent         = '¥' + fmt(gross);
-  document.getElementById('rowPension').textContent       = '-¥' + fmt(siPen);
-  document.getElementById('rowMedical').textContent       = '-¥' + fmt(siMed);
-  document.getElementById('rowUnemployment').textContent  = '-¥' + fmt(siUne);
+  document.getElementById('rowSocialIns').textContent     = '-¥' + fmt(siTot);
   document.getElementById('rowHousingFund').textContent   = '-¥' + fmt(hf);
   document.getElementById('rowTax').textContent           = '-¥' + fmt(tax);
   document.getElementById('rowYEBTax').textContent        = '-¥' + fmt(yebTax);
@@ -656,8 +951,37 @@ function calc() {
   var ratio = gross > 0 ? ((siTot + hf + tax) / gross * 100) : 0;
   document.getElementById('deductRatio').textContent = ratio.toFixed(1) + '%';
   document.getElementById('ratioFill').style.width = Math.min(ratio, 100).toFixed(0) + '%';
+
+  saveFormData();
 }
 
+// ── Form persistence ──
+var FORM_FIELDS = ['baseSalary','bonus','subsidy','yearEndBonus','otWeekday','otWeekend','otHoliday',
+  'dedChildEdu','dedInfant','dedContEdu','dedMortgage','dedRent','dedElderly'];
+
+function saveFormData() {
+  var data = {};
+  FORM_FIELDS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) data[id] = el.value;
+  });
+  localStorage.setItem('salary-form-data', JSON.stringify(data));
+}
+
+function loadFormData() {
+  try {
+    var data = JSON.parse(localStorage.getItem('salary-form-data') || '{}');
+    FORM_FIELDS.forEach(function(id) {
+      if (data.hasOwnProperty(id)) {
+        var el = document.getElementById(id);
+        if (el) el.value = data[id];
+      }
+    });
+  } catch(e) {}
+}
+
+loadFormData();
+renderCalendar();
 calc();
 </script>
 <script>
