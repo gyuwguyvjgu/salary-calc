@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>wuji薪资计算器</title>
 <meta name="theme-color" content="#7c5cfc">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -382,8 +385,8 @@
     <!-- Select mode action bar -->
     <div class="select-bar" id="selectBar" style="display:none;">
       <span id="selectCount">已选 0 天</span>
-      <button onclick="applyBatchHours(8)">📋 设为 8h</button>
-      <button onclick="applyBatchHours(0)">🗑 设为 0h</button>
+      <input type="number" id="batchHoursVal" value="8" step="0.5" min="0" max="24" style="width:50px;padding:4px;border:1px solid #ddd0f0;border-radius:6px;font-size:13px;text-align:center;">
+      <button onclick="applyBatchHours(parseFloat(document.getElementById('batchHoursVal').value)||0)">✅ 应用</button>
       <button onclick="exitSelectMode()">✕ 取消</button>
     </div>
     <div style="font-size:11px;color:#b0a8c4;margin-top:4px;text-align:center;">长按日期进入多选模式，可批量设工时</div>
@@ -1039,9 +1042,11 @@ renderCalendar();
 calc();
 </script>
 <script>
-// ── Service Worker ──
+// ── Clear old Service Worker (causes stale cache) ──
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
+  navigator.serviceWorker.getRegistrations().then(function(regs) {
+    regs.forEach(function(r) { r.unregister(); });
+  });
 }
 
 // ── Install Banner ──
