@@ -811,6 +811,8 @@ function enterSelectMode(cellId) {
   selectMode = true;
   selectedCells = new Set();
   selectedCells.add(cellId);
+  // Disable all calendar inputs during batch select
+  document.querySelectorAll('#calendarGrid input').forEach(function(inp) { inp.readOnly = true; inp.style.pointerEvents = 'none'; });
   refreshSelectUI();
   document.getElementById('selectBar').style.display = 'flex';
 }
@@ -818,6 +820,8 @@ function enterSelectMode(cellId) {
 function exitSelectMode() {
   selectMode = false;
   selectedCells = new Set();
+  // Re-enable all calendar inputs
+  document.querySelectorAll('#calendarGrid input').forEach(function(inp) { inp.readOnly = false; inp.style.pointerEvents = ''; });
   refreshSelectUI();
   document.getElementById('selectBar').style.display = 'none';
 }
