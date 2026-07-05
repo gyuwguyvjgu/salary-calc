@@ -29,11 +29,14 @@
 
   /* ── Header ── */
   /* ── Tab Nav ── */
-  .tab-nav { display: flex; gap: 0; margin-bottom: 14px; border-radius: 14px; overflow: hidden; background: #fff; border: 1px solid #eeeaf5; }
-  .tab-btn { flex: 1; padding: 12px; border: none; background: #fff; font-size: 14px; font-weight: 600; color: #8e8a9e; cursor: pointer; transition: all 0.2s; }
-  .tab-btn.active { background: linear-gradient(135deg, #7c5cfc, #5b8def); color: #fff; }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
+
+  /* ── Bottom Tab Bar ── */
+  .bottom-tab-bar { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background: #fff; border-top: 1px solid #eeeaf5; z-index: 1000; padding: 6px 0; padding-bottom: max(6px, env(safe-area-inset-bottom)); box-shadow: 0 -2px 12px rgba(0,0,0,0.04); }
+  .btab-btn { flex: 1; padding: 8px; border: none; background: none; font-size: 13px; font-weight: 600; color: #8e8a9e; cursor: pointer; }
+  .btab-btn.active { color: #7c5cfc; }
+  .app { padding-bottom: 70px; }
 
   /* ── Card ── */
   .card {
@@ -350,12 +353,6 @@
 
 <div class="app">
 
-  <!-- ── Tab Navigation ── -->
-  <div class="tab-nav">
-    <button class="tab-btn active" onclick="switchTab('calendar')">📅 日历填工时</button>
-    <button class="tab-btn" onclick="switchTab('salary')">💰 薪资计算</button>
-  </div>
-
   <!-- ── Tab: Calendar ── -->
   <div class="tab-panel active" id="tab-calendar">
   <div class="card" id="calendarCard">
@@ -558,6 +555,12 @@
 
   <div class="footer">深圳薪资计算器 · 仅供参考，实际以工资条为准</div>
   </div><!-- /tab-salary -->
+
+  <!-- ── Bottom Tab Bar ── -->
+  <div class="bottom-tab-bar">
+    <button class="btab-btn active" onclick="switchTab('calendar')">📅 日历</button>
+    <button class="btab-btn" onclick="switchTab('salary')">💰 薪资</button>
+  </div>
 </div>
 
 <script>
@@ -764,11 +767,11 @@ function updateCalSummary() {
 }
 
 function switchTab(name) {
-  // Update buttons
-  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelectorAll('.btab-btn').forEach(function(b) { b.classList.remove('active'); });
   document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
   event.target.classList.add('active');
   document.getElementById('tab-' + name).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function applyCalendarToSalary() {
@@ -780,9 +783,9 @@ function applyCalendarToSalary() {
   // Trigger salary calculation
   calc();
   // Switch to salary tab
-  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelectorAll('.btab-btn').forEach(function(b) { b.classList.remove('active'); });
   document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
-  document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
+  document.querySelector('.btab-btn:nth-child(2)').classList.add('active');
   document.getElementById('tab-salary').classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
