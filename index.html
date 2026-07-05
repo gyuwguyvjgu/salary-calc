@@ -702,7 +702,7 @@ function renderCalendar() {
     var val = saved !== null ? saved : defVal;
     var cellId = 'cell-' + calYear + '-' + calMonth + '-' + d;
 
-    html += '<div class="' + cls + '" id="' + cellId + '" onmousedown="startLongPress(\'' + cellId + '\')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()" ontouchstart="startLongPress(\'' + cellId + '\')" ontouchend="cancelLongPress()" ontouchmove="cancelLongPress()" onclick="if(selectMode){toggleCellSelect(\'' + cellId + '\');event.preventDefault();}">';
+    html += '<div class="' + cls + '" id="' + cellId + '" onmousedown="startLongPress(\'' + cellId + '\')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()" ontouchstart="startLongPress(\'' + cellId + '\')" ontouchend="cancelLongPress();endSwipe()" ontouchmove="cancelLongPress();onSwipeSelect(event)" onclick="if(selectMode){toggleCellSelect(\'' + cellId + '\');event.preventDefault();}">';
     html += '<div class="day-num">' + d + (holName ? '<br><span style="font-size:9px">' + holName + '</span>' : '') + '</div>';
     html += '<input type="number" step="0.5" min="0" max="24" value="' + val + '" onchange="onCellChange()" oninput="onCellChange()" placeholder="' + defVal + '" onclick="if(selectMode)event.preventDefault();">';
     // Show small tag for hours beyond normal
@@ -868,6 +868,7 @@ function applyBatchHours(hrs) {
 // Long press detection
 var longPressTimer = null;
 var longPressTarget = null;
+var swipeLastCell = null;
 
 function startLongPress(cellId, el) {
   longPressTarget = cellId;
@@ -875,12 +876,30 @@ function startLongPress(cellId, el) {
     enterSelectMode(cellId);
     longPressTimer = null;
     longPressTarget = null;
-  }, 500);
+    swipeLastCell = cellId;
+  }, 400);
 }
 
 function cancelLongPress() {
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
   longPressTarget = null;
+}
+
+function onSwipeSelect(e) {
+  if (!selectMode) return;
+  var el = document.elementFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+  if (!el) return;
+  // Walk up to find the .cal-cell
+  var cell = el.closest('.cal-cell');
+  if (!cell || !cell.id || cell.classList.contains('other-month')) return;
+  if (cell.id !== swipeLastCell) {
+    swipeLastCell = cell.id;
+    toggleCellSelect(cell.id);
+  }
+}
+
+function endSwipe() {
+  swipeLastCell = null;
 }
 
 function toggleDeductions() {
