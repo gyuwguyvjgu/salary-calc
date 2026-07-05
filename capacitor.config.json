@@ -2,5 +2,9 @@
   "appId": "com.salary.calc",
   "appName": "薪资计算",
   "webDir": "www",
-  "bundledWebRuntime": false
+  "bundledWebRuntime": false,
+  "server": {
+    "url": "https://gitee.com/la-alaLLLL/wuji-salary/raw/master/index.html",
+    "cleartext": false
+  }
 }
