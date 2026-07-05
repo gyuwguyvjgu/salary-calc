@@ -28,42 +28,12 @@
   }
 
   /* ── Header ── */
-  .header {
-    text-align: center;
-    margin-bottom: 36px;
-  }
-  .header .logo {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 60px; height: 60px;
-    background: linear-gradient(135deg, #7c5cfc, #5b8def);
-    border-radius: 20px;
-    font-size: 30px;
-    margin-bottom: 16px;
-    box-shadow: 0 8px 28px rgba(124,92,252,0.22);
-  }
-  .header h1 {
-    font-size: 26px;
-    font-weight: 700;
-    color: #5b34d8;
-    margin-bottom: 6px;
-  }
-  .header .subtitle {
-    font-size: 13px;
-    color: #8e8a9e;
-    letter-spacing: 0.5px;
-  }
-  .header .subtitle .tag {
-    display: inline-block;
-    padding: 2px 10px;
-    border-radius: 20px;
-    background: rgba(124,92,252,0.08);
-    color: #7c5cfc;
-    font-size: 11px;
-    margin: 0 2px;
-    font-weight: 500;
-  }
+  /* ── Tab Nav ── */
+  .tab-nav { display: flex; gap: 0; margin-bottom: 14px; border-radius: 14px; overflow: hidden; background: #fff; border: 1px solid #eeeaf5; }
+  .tab-btn { flex: 1; padding: 12px; border: none; background: #fff; font-size: 14px; font-weight: 600; color: #8e8a9e; cursor: pointer; transition: all 0.2s; }
+  .tab-btn.active { background: linear-gradient(135deg, #7c5cfc, #5b8def); color: #fff; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
 
   /* ── Card ── */
   .card {
@@ -380,18 +350,14 @@
 
 <div class="app">
 
-  <!-- ── Header ── -->
-  <div class="header">
-    <div class="logo">🧮</div>
-    <h1>wuji薪资计算器</h1>
-    <p class="subtitle">
-      <span class="tag">深圳一档社保</span>
-      <span class="tag">公积金5%</span>
-      <span class="tag">自动算个税</span>
-    </p>
+  <!-- ── Tab Navigation ── -->
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('calendar')">📅 日历填工时</button>
+    <button class="tab-btn" onclick="switchTab('salary')">💰 薪资计算</button>
   </div>
 
-  <!-- ── Calendar ── -->
+  <!-- ── Tab: Calendar ── -->
+  <div class="tab-panel active" id="tab-calendar">
   <div class="card" id="calendarCard">
     <div class="card-title">
       <span class="icon icon-result">📅</span>日历填工时
@@ -420,6 +386,10 @@
     </div>
     <button class="btn-apply" onclick="applyCalendarToSalary()">📥 套用到薪资计算</button>
   </div>
+  </div><!-- /tab-calendar -->
+
+  <!-- ── Tab: Salary ── -->
+  <div class="tab-panel" id="tab-salary">
 
   <!-- ── Salary Input ── -->
   <div class="card">
@@ -587,6 +557,7 @@
   </div>
 
   <div class="footer">深圳薪资计算器 · 仅供参考，实际以工资条为准</div>
+  </div><!-- /tab-salary -->
 </div>
 
 <script>
@@ -792,6 +763,14 @@ function updateCalSummary() {
   document.getElementById('sumOT3').textContent = h.ot3.toFixed(1) + 'h';
 }
 
+function switchTab(name) {
+  // Update buttons
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+  event.target.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
 function applyCalendarToSalary() {
   var h = getCellHours();
   // Fill overtime hours into the salary form
@@ -800,8 +779,12 @@ function applyCalendarToSalary() {
   document.getElementById('otHoliday').value = h.ot3;
   // Trigger salary calculation
   calc();
-  // Scroll to results
-  document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth' });
+  // Switch to salary tab
+  document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+  document.querySelector('.tab-btn:nth-child(2)').classList.add('active');
+  document.getElementById('tab-salary').classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function batchFill(mode) {
