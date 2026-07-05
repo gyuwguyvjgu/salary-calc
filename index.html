@@ -332,8 +332,11 @@
   .cal-summary .sum-val.ot3     { color: #e0314f; }
   .btn-apply { display: block; width: 100%; margin-top: 8px; padding: 10px; border: none; border-radius: 12px; background: linear-gradient(135deg, #7c5cfc, #5b8def); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
   .btn-apply:hover { opacity: 0.9; }
-  .btn-batch { flex:1; padding:6px 4px; border:1px solid #e8e4f0; border-radius:8px; background:#fff; font-size:11px; color:#5a5470; cursor:pointer; }
-  .btn-batch:hover { background:#f5f0ff; }
+    .cal-cell.selecting { border: 2px dashed #7c5cfc; cursor: pointer; }
+  .cal-cell.selected { border: 2px solid #7c5cfc; background: #f3eeff; }
+  .select-bar { display:flex; align-items:center; gap:6px; padding:8px 10px; margin-top:8px; background:#f3eeff; border-radius:10px; flex-wrap:wrap; }
+  .select-bar span { font-size:12px; color:#7c5cfc; font-weight:600; margin-right:auto; }
+  .select-bar button { padding:5px 10px; border:1px solid #ddd0f0; border-radius:7px; background:#fff; font-size:11px; color:#5a5470; cursor:pointer; }
   @media (max-width: 500px) {
     .cal-cell { min-height: 48px; padding: 2px 1px 4px; }
     .cal-cell input { width: 34px; font-size: 11px; padding: 2px 1px; }
@@ -376,11 +379,14 @@
       <div class="sum-item"><div class="sum-val ot2" id="sumOT2">0h</div><div class="sum-label">休息日OT (2x)</div></div>
       <div class="sum-item"><div class="sum-val ot3" id="sumOT3">0h</div><div class="sum-label">节假日OT (3x)</div></div>
     </div>
-    <div style="display:flex;gap:6px;margin-top:10px;">
-      <button class="btn-batch" onclick="batchFill('workday')">📋 工作日→8h</button>
-      <button class="btn-batch" onclick="batchFill('all')">📋 全月→8h</button>
-      <button class="btn-batch" onclick="batchFill('clear')">🗑 清空</button>
+    <!-- Select mode action bar -->
+    <div class="select-bar" id="selectBar" style="display:none;">
+      <span id="selectCount">已选 0 天</span>
+      <button onclick="applyBatchHours(8)">📋 设为 8h</button>
+      <button onclick="applyBatchHours(0)">🗑 设为 0h</button>
+      <button onclick="exitSelectMode()">✕ 取消</button>
     </div>
+    <div style="font-size:11px;color:#b0a8c4;margin-top:4px;text-align:center;">长按日期进入多选模式，可批量设工时</div>
     <button class="btn-apply" onclick="applyCalendarToSalary()">📥 套用到薪资计算</button>
   </div>
   </div><!-- /tab-calendar -->
@@ -690,9 +696,9 @@ function renderCalendar() {
     var val = saved !== null ? saved : defVal;
     var cellId = 'cell-' + calYear + '-' + calMonth + '-' + d;
 
-    html += '<div class="' + cls + '" id="' + cellId + '">';
+    html += '<div class="' + cls + '" id="' + cellId + '" onmousedown="startLongPress(\'' + cellId + '\')" onmouseup="cancelLongPress()" onmouseleave="cancelLongPress()" ontouchstart="startLongPress(\'' + cellId + '\')" ontouchend="cancelLongPress()" ontouchmove="cancelLongPress()" onclick="if(selectMode){toggleCellSelect(\'' + cellId + '\');event.preventDefault();}">';
     html += '<div class="day-num">' + d + (holName ? '<br><span style="font-size:9px">' + holName + '</span>' : '') + '</div>';
-    html += '<input type="number" step="0.5" min="0" max="24" value="' + val + '" onchange="onCellChange()" oninput="onCellChange()" placeholder="' + defVal + '">';
+    html += '<input type="number" step="0.5" min="0" max="24" value="' + val + '" onchange="onCellChange()" oninput="onCellChange()" placeholder="' + defVal + '" onclick="if(selectMode)event.preventDefault();">';
     // Show small tag for hours beyond normal
     html += '<div class="tag" style="display:none" id="tag-' + cellId + '"></div>';
     html += '</div>';
@@ -711,6 +717,7 @@ function renderCalendar() {
 }
 
 function onCellChange() {
+  if (selectMode) return; // Don't trigger during batch select
   saveAllCalData();
   updateCalSummary();
 }
@@ -790,23 +797,84 @@ function applyCalendarToSalary() {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-function batchFill(mode) {
-  var firstDay = new Date(calYear, calMonth - 1, 1);
-  var lastDay = new Date(calYear, calMonth, 0);
-  for (var d = 1; d <= lastDay.getDate(); d++) {
-    var dow = (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1) + d - 1;
-    dow = dow % 7;
-    var isWe = dow >= 5;
-    var isHol = isHoliday(calYear, calMonth, d);
-    var hrs = 0;
-    if (mode === 'workday') { hrs = (!isWe && !isHol) ? 8 : 0; }
-    else if (mode === 'all') { hrs = 8; }
-    // mode === 'clear': hrs stays 0
-    var cell = document.getElementById('cell-' + calYear + '-' + calMonth + '-' + d);
-    if (cell) { cell.querySelector('input').value = hrs; }
-    saveCalData(calYear, calMonth, d, hrs);
+// ── Select Mode ──
+var selectMode = false;
+var selectedCells = new Set();
+
+function enterSelectMode(cellId) {
+  selectMode = true;
+  selectedCells = new Set();
+  selectedCells.add(cellId);
+  refreshSelectUI();
+  document.getElementById('selectBar').style.display = 'flex';
+}
+
+function exitSelectMode() {
+  selectMode = false;
+  selectedCells = new Set();
+  refreshSelectUI();
+  document.getElementById('selectBar').style.display = 'none';
+}
+
+function toggleCellSelect(cellId) {
+  if (!selectMode) return;
+  if (selectedCells.has(cellId)) {
+    selectedCells.delete(cellId);
+    if (selectedCells.size === 0) { exitSelectMode(); return; }
+  } else {
+    selectedCells.add(cellId);
   }
+  refreshSelectUI();
+}
+
+function refreshSelectUI() {
+  // Update cell visuals
+  var allCells = document.querySelectorAll('.cal-cell.selecting, .cal-cell.selected');
+  allCells.forEach(function(c) { c.classList.remove('selecting','selected'); });
+  if (selectMode) {
+    selectedCells.forEach(function(id) {
+      var cell = document.getElementById(id);
+      if (cell) cell.classList.add('selected');
+    });
+    // Highlight all non-selected cells as "tappable"
+    var cells = document.querySelectorAll('.cal-cell:not(.other-month):not(.selected)');
+    cells.forEach(function(c) { c.classList.add('selecting'); });
+  }
+  document.getElementById('selectCount').textContent = '已选 ' + selectedCells.size + ' 天';
+}
+
+function applyBatchHours(hrs) {
+  if (selectedCells.size === 0) return;
+  selectedCells.forEach(function(id) {
+    var cell = document.getElementById(id);
+    if (cell) {
+      cell.querySelector('input').value = hrs;
+      // Extract date from ID: cell-YYYY-M-D
+      var parts = id.split('-');
+      var d = parseInt(parts[3]);
+      saveCalData(calYear, calMonth, d, hrs);
+    }
+  });
   updateCalSummary();
+  exitSelectMode();
+}
+
+// Long press detection
+var longPressTimer = null;
+var longPressTarget = null;
+
+function startLongPress(cellId, el) {
+  longPressTarget = cellId;
+  longPressTimer = setTimeout(function() {
+    enterSelectMode(cellId);
+    longPressTimer = null;
+    longPressTarget = null;
+  }, 500);
+}
+
+function cancelLongPress() {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  longPressTarget = null;
 }
 
 function toggleDeductions() {
