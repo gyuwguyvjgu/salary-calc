@@ -205,8 +205,10 @@
   hr.divider {
     border: none;
     border-top: 1.5px solid #f0ecf8;
-    margin: 22px 0 18px;
+    margin: 18px 0 16px;
   }
+  .fund-info { background: #f9f7ff; border-radius: 12px; padding: 12px 16px; margin-top: 12px; }
+  .fund-row { display: flex; justify-content: space-between; font-size: 13px; color: #5a5470; padding: 3px 0; }
   .breakdown table { width: 100%; font-size: 13px; border-collapse: collapse; }
   .breakdown th, .breakdown td { padding: 7px 14px; text-align: right; }
   .breakdown th {
@@ -527,6 +529,11 @@
       </div>
     </div>
 
+    <div class="fund-info">
+      <div class="fund-row"><span>🏠 个人公积金</span><span>12% × 3000 = <strong id="fundPersonal">¥360.00</strong></span></div>
+      <div class="fund-row"><span>🏢 公司公积金</span><span>6% × 3000 = <strong id="fundCompany">¥180.00</strong></span></div>
+      <div class="fund-row" style="border-top:1px solid #f0ecf8;padding-top:4px;margin-top:2px;"><span>合计入账</span><span><strong id="fundTotal" style="color:#10b76f;">¥540.00</strong></span></div>
+    </div>
     <hr class="divider">
 
     <div class="breakdown">
@@ -541,7 +548,7 @@
 
         <tr class="section-header"><th>📤 扣款明细</th><td></td></tr>
         <tr class="deduct-row"><th>社保 · 深圳一档（最低基数）</th><td id="rowSocialIns">-¥521.58</td></tr>
-        <tr class="deduct-row"><th>公积金 · 5% (基数3000)</th><td id="rowHousingFund">-¥0.00</td></tr>
+        <tr class="deduct-row"><th>公积金 · 12% (基数3000)</th><td id="rowHousingFund">-¥0.00</td></tr>
         <tr class="deduct-row sep"><th>个人所得税（月度）</th><td id="rowTax">-¥0.00</td></tr>
         <tr class="deduct-row"><th>年终奖个税（单独计税）</th><td id="rowYEBTax">-¥0.00</td></tr>
         <tr class="total"><th>月度 + 年终扣款合计</th><td id="rowTotalDeduct">-¥0.00</td></tr>
@@ -561,7 +568,7 @@
     <p>• 社保：深圳一档最低基数缴纳，固定 <span class="highlight-num">521.58元/月</span></p>
     <p>• 加班费 = 底薪 ÷ <span class="highlight-num">21.75</span> ÷ 8 × 时数 × 倍数</p>
     <p>• 个税起征点：<span class="highlight-num">5,000元/月</span>，采用七级超额累进税率预扣预缴</p>
-    <p>• 公积金：<span class="highlight-num">5%</span> × 固定基数 <span class="highlight-num">3,000元</span> = <span class="highlight-num">150元/月</span></p>
+    <p>• 公积金：<span class="highlight-num">12%</span> × 固定基数 <span class="highlight-num">3,000元</span> = <span class="highlight-num">360元/月</span></p>
     <p>• 年终奖：单独计税，÷12 找对应月度税率，不与月薪合并计税</p>
   </div>
 
@@ -587,7 +594,7 @@ var RATES = {
   pension:      0.08,
   medical:      0.02,
   unemployment: 0.002,
-  housingFund:  0.05,
+  housingFund:  0.12,
 };
 
 var TAX_BRACKETS = [
@@ -1026,6 +1033,9 @@ function calc() {
   document.getElementById('rowYEB').textContent           = '¥' + fmt(yeb);
   document.getElementById('rowGross').textContent         = '¥' + fmt(gross);
   document.getElementById('rowSocialIns').textContent     = '-¥' + fmt(siTot);
+  document.getElementById('fundPersonal').textContent     = '¥' + fmt(hf);
+  document.getElementById('fundCompany').textContent      = '¥' + fmt(hf / 12 * 6);
+  document.getElementById('fundTotal').textContent        = '¥' + fmt(hf + hf / 12 * 6);
   document.getElementById('rowHousingFund').textContent   = '-¥' + fmt(hf);
   document.getElementById('rowTax').textContent           = '-¥' + fmt(tax);
   document.getElementById('rowYEBTax').textContent        = '-¥' + fmt(yebTax);
