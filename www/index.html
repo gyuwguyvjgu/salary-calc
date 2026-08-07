@@ -4,248 +4,373 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>深圳薪资计算器</title>
-<meta name="theme-color" content="#7c5cfc">
+<meta name="theme-color" content="#f2f2f7">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="薪资计算">
 <link rel="apple-touch-icon" href="icon-512.png">
 <link rel="manifest" href="manifest.json">
 <style>
+  /* ═══════════════════════════════════════════════════════════
+     深圳薪资计算器 · iOS 设置页风格
+     浅灰分组底 + 纯白 inset 卡片 + 通栏细线分隔（左侧内缩 16px）。
+     全程系统字体，蓝色是唯一交互色，红色只用于负数与危险操作。
+     ═══════════════════════════════════════════════════════════ */
+
+  :root {
+    --bg:        #f2f2f7;   /* systemGroupedBackground */
+    --card:      #ffffff;
+    --sep:       #d1d1d6;   /* 分隔线 */
+    --sep-soft:  #e5e5ea;
+
+    --label:     #000000;
+    --label-2:   #8a8a8e;   /* 次要文字 / 右侧数值 */
+    --label-3:   #b9b9be;   /* 占位符 */
+    --group-cap: #6d6d72;   /* 分组标题 */
+
+    --blue:      #007aff;
+    --blue-tint: #e8f2ff;
+    --red:       #ff3b30;
+    --green:     #34c759;
+    --orange:    #ff9500;
+
+    --font: -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC",
+            "HarmonyOS Sans SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+  }
+
   * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
 
   body {
-    font-family: "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background: #f3f0f9;
-    color: #2d2a3e;
-    line-height: 1.6;
+    font-family: var(--font);
+    font-size: 15px; line-height: 1.45;
+    font-variant-numeric: tabular-nums;
+    color: var(--label);
+    background: var(--bg);
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
   }
+  ::selection { background: var(--blue-tint); }
 
-  .app { max-width: 860px; margin: 0 auto; padding: 28px 18px 60px; }
+  .app { max-width: 680px; margin: 0 auto; padding: 22px 16px 48px; }
 
-  /* ── Header ── */
-  .header { text-align: center; margin-bottom: 22px; }
-  .header .logo {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 56px; height: 56px;
-    background: linear-gradient(135deg, #7c5cfc, #5b8def);
-    border-radius: 18px; font-size: 28px; margin-bottom: 12px;
-    box-shadow: 0 8px 28px rgba(124,92,252,0.22);
+  /* ── Segmented Control ──
+     页面不设标题，Tab 就是第一个元素，上方留白由 .app 的 padding 给 */
+  .tab-nav {
+    display: flex; gap: 2px; padding: 2px; margin-bottom: 20px;
+    background: #e4e4e8; border-radius: 9px;
   }
-  .header h1 { font-size: 24px; font-weight: 700; color: #5b34d8; margin-bottom: 6px; }
-  .header .subtitle { font-size: 13px; color: #8e8a9e; }
-  .header .subtitle .tag {
-    display: inline-block; padding: 2px 10px; border-radius: 20px;
-    background: rgba(124,92,252,0.08); color: #7c5cfc; margin: 0 2px;
+  .tab-btn {
+    flex: 1; padding: 7px 4px; border: none; border-radius: 7px; cursor: pointer;
+    background: transparent; font-family: inherit; font-size: 13.5px; font-weight: 500;
+    color: var(--label); transition: background .15s, box-shadow .15s;
   }
-
-  /* ── Tab Nav ── */
-  .tab-nav { display: flex; margin-bottom: 14px; border-radius: 14px; overflow: hidden; background: #fff; border: 1px solid #eeeaf5; }
-  .tab-btn { flex: 1; padding: 12px; border: none; background: #fff; font-size: 14px; font-weight: 600; color: #8e8a9e; cursor: pointer; transition: all 0.2s; font-family: inherit; }
-  .tab-btn.active { background: linear-gradient(135deg, #7c5cfc, #5b8def); color: #fff; }
+  .tab-btn.active {
+    background: var(--card); font-weight: 600;
+    box-shadow: 0 3px 8px rgba(0,0,0,.10), 0 1px 1px rgba(0,0,0,.04);
+  }
   .tab-panel { display: none; }
   .tab-panel.active { display: block; }
 
-  /* ── Card ── */
-  .card {
-    background: #fff; border: 1px solid #eeeaf5; border-radius: 16px;
-    padding: 20px; margin-bottom: 14px;
-    box-shadow: 0 2px 16px rgba(124,92,252,0.05);
+  /* ── 分组 ── */
+  .group { margin-bottom: 22px; }
+  .group-title {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+    padding: 0 16px 7px; font-size: 12.5px; font-weight: 400; color: var(--group-cap);
   }
-  .card-title {
-    font-size: 15px; font-weight: 700; color: #37314b;
-    margin-bottom: 12px; display: flex; align-items: center; gap: 10px;
+  .group-title span { color: var(--label-3); }
+  .group-foot {
+    padding: 7px 16px 0; font-size: 12px; line-height: 1.55; color: var(--label-2);
   }
-  .card-title .icon {
+  .card { background: var(--card); border-radius: 12px; overflow: hidden; }
+  .card.plain { padding: 14px 16px; }
+
+  /* ── 列表行 ── */
+  .row {
+    position: relative; display: flex; align-items: center; gap: 12px;
+    min-height: 42px; padding: 9px 16px;
+  }
+  /* 分隔线左侧内缩 —— iOS 分组列表的标志性细节 */
+  .row::before {
+    content: ''; position: absolute; top: 0; left: 16px; right: 0;
+    height: 1px; background: var(--sep-soft);
+  }
+  .list > .row:first-child::before { display: none; }
+
+  .row-main { flex: 1; min-width: 0; }
+  .row-desc { margin-top: 2px; font-size: 11.5px; color: var(--label-3); }
+  .row-label { flex-shrink: 0; font-size: 15px; color: var(--label); }
+  .row-label .sub { margin-left: 5px; font-size: 11.5px; color: var(--label-3); }
+  .row-value {
+    margin-left: auto; text-align: right; font-size: 15px; color: var(--label-2);
+    font-variant-numeric: tabular-nums;
+  }
+  .row-value.dark { color: var(--label); }
+  .row-value.neg  { color: var(--red); }
+  .row.strong { font-weight: 600; }
+  .row.strong .row-label, .row.strong .row-value { font-weight: 600; color: var(--label); }
+  .row.strong .row-value.neg { color: var(--red); }
+  .row-block { display: block; }
+  .row-value.pos { color: var(--green); }
+  .row.strong .row-value.pos { color: var(--green); }
+
+  /* 行首彩色图标 —— iOS 设置页的色彩几乎全来自这里。
+     同一个概念固定同一个字和同一个色（底薪永远是蓝「薪」），
+     重复出现形成秩序感，不会因为颜色多而显得杂。 */
+  .row-icon {
+    width: 27px; height: 27px; flex-shrink: 0; border-radius: 7px;
     display: flex; align-items: center; justify-content: center;
-    width: 28px; height: 28px; border-radius: 10px; font-size: 14px;
+    font-size: 13px; font-weight: 600; line-height: 1; color: #fff;
   }
-  .icon-salary { background: #ece6fa; }
-  .icon-deduct { background: #ffe8ee; }
-  .icon-result { background: #d8f5e6; }
-  .icon-gear   { background: #e6effa; }
+  .ic-blue   { background: var(--blue); }
+  .ic-orange { background: var(--orange); }
+  .ic-teal   { background: #30b0c7; }
+  .ic-indigo { background: #5856d6; }
+  .ic-green  { background: var(--green); }
+  .ic-red    { background: var(--red); }
+  .ic-pink   { background: #ff2d55; }
+  .ic-purple { background: #af52de; }
+  .ic-gray   { background: #a8a8ad; }
+  /* 带图标的列表里分隔线从文字左边缘起，不穿过图标 */
+  .icons .row::before { left: 55px; }
+  .icons .row.row-block::before { left: 16px; }
 
-  /* ── Form ── */
-  .form-row { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }
-  .form-group { flex: 1; min-width: 150px; }
-  .form-group label { display: block; font-size: 12.5px; font-weight: 600; color: #5a5470; margin-bottom: 6px; }
-  .form-group input, .form-group select {
-    width: 100%; padding: 11px 15px;
-    border: 1.5px solid #e8e4f0; border-radius: 12px;
-    font-size: 14px; font-family: inherit;
-    background: #faf9fd; color: #2d2a3e; outline: none;
-  }
-  .form-group input::placeholder { color: #c0bbcd; }
-  .form-group input:focus, .form-group select:focus {
-    border-color: #7c5cfc; background: #fff;
-    box-shadow: 0 0 0 4px rgba(124,92,252,0.07);
-  }
-  .form-group .unit { font-size: 11px; color: #b0a8c4; margin-top: 4px; padding-left: 2px; }
+  /* 可点开的行 */
+  .row-tap { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .row-tap:active { background: #eaeaef; }
+  .row-tap .chev { margin-left: 6px; font-size: 9px; font-style: normal; color: var(--label-3); }
 
-  /* ── Result Cards ── */
-  .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 500px) {
-    .result-grid { grid-template-columns: 1fr; }
-    .form-group { min-width: 120px; }
+  /* 行内输入：右对齐、无边框，看起来就是一段可编辑的数值 */
+  .row-input {
+    flex: 1; min-width: 0; border: none; background: transparent; outline: none;
+    text-align: right; font-family: inherit; font-size: 15px; color: var(--label);
+    font-variant-numeric: tabular-nums;
   }
-  .result-item { padding: 22px 18px; border-radius: 16px; text-align: center; }
-  .result-item.pre-tax   { background: #f3eeff; border: 1.5px solid #e4dcf8; }
-  .result-item.after-tax { background: #ecfdf5; border: 1.5px solid #d0f0e0; }
-  .result-item .label { font-size: 12.5px; color: #8b85a0; font-weight: 500; margin-bottom: 6px; }
-  .result-item .value { font-size: 30px; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px; }
-  .result-item.pre-tax .value   { color: #5b3de8; }
-  .result-item.after-tax .value { color: #10b76f; }
-  .result-item .annual { font-size: 12px; color: #b0a8c4; font-weight: 500; }
-  .result-item .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; margin-top: 6px; }
-  .result-item.pre-tax .badge   { background: rgba(124,92,252,0.1); color: #7c5cfc; }
-  .result-item.after-tax .badge { background: rgba(52,200,138,0.1); color: #10b76f; }
+  .row-input::placeholder { color: var(--label-3); }
+  .row-input:disabled { color: var(--label-3); -webkit-text-fill-color: var(--label-3); }
+  .row-select {
+    flex: 1; min-width: 0; border: none; outline: none; cursor: pointer;
+    background-color: transparent; font-family: inherit; font-size: 15px; color: var(--blue);
+    text-align: right; text-align-last: right;
+    -webkit-appearance: none; appearance: none;
+    padding-right: 15px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%23007aff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 0 center;
+  }
 
-  /* ── Breakdown Table ── */
-  hr.divider { border: none; border-top: 1.5px solid #f0ecf8; margin: 22px 0 18px; }
-  .breakdown table { width: 100%; font-size: 13px; border-collapse: collapse; }
-  .breakdown th, .breakdown td { padding: 7px 12px; text-align: right; }
-  .breakdown th { color: #8e8a9e; font-weight: 500; text-align: left; width: 58%; }
-  .breakdown td { color: #3d3855; font-weight: 500; }
-  .breakdown .section-header td, .breakdown .section-header th {
-    padding-top: 14px; font-size: 11.5px; font-weight: 700; letter-spacing: 1px; color: #b0a8c4;
+  /* 操作行：整行蓝色居中文字，iOS 里「清除」「退出」都是这个样式 */
+  .row-action {
+    justify-content: center; cursor: pointer; width: 100%; border: none;
+    background: transparent; font-family: inherit; font-size: 15px; color: var(--blue);
+    -webkit-tap-highlight-color: transparent;
   }
-  .breakdown tr.sep td, .breakdown tr.sep th { border-bottom: 1px solid #f0ecf8; padding-bottom: 12px; }
-  .breakdown tr.highlight td, .breakdown tr.highlight th {
-    background: rgba(124,92,252,0.03); border-radius: 8px; font-weight: 700;
-  }
-  .breakdown .deduct-row td { color: #f4727b; }
-  .breakdown .deduct-row th { color: #c0848b; }
-  .breakdown tr.total td, .breakdown tr.total th {
-    border-top: 2px solid #e8e4f0; padding-top: 14px;
-    font-weight: 700; font-size: 14px; color: #2d2a3e;
-  }
-  .breakdown tr.total td { color: #e0314f; }
-  .breakdown .sub { font-size: 11px; color: #b0a8c4; font-weight: 400; }
+  .row-action:active { background: #eaeaef; }
+  .row-action.danger { color: var(--red); }
 
-  .ratio-bar-wrap { display: flex; align-items: center; gap: 10px; margin-top: 16px; font-size: 12px; color: #8e8a9e; }
-  .ratio-bar { flex: 1; height: 6px; background: #f0ecf8; border-radius: 3px; overflow: hidden; }
-  .ratio-bar .fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #c4b5fd, #f4727b); }
-  #deductRatio { color: #f4727b; font-weight: 700; }
-
-  /* ── Note ── */
-  .note {
-    font-size: 12px; color: #9a95ae; margin-top: 16px; padding: 16px 18px;
-    background: #fff; border-radius: 12px; border: 1px solid #eeeaf5; line-height: 1.8;
-  }
-  .note strong { color: #5a5470; }
-  .note .highlight-num { color: #7c5cfc; font-weight: 700; }
-  .footer { text-align: center; font-size: 11px; color: #c0bbcd; margin-top: 28px; }
-
+  input[type=number] { -moz-appearance: textfield; }
   input[type=number]::-webkit-inner-spin-button,
-  input[type=number]::-webkit-outer-spin-button { opacity: 0.5; }
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
-  /* ── Install banner ── */
+  /* ── 结果卡：整张彩色，全页唯一的大色块，也是视线第一落点 ── */
+  .hero {
+    padding: 16px 16px 0;
+    background: linear-gradient(135deg, #0a84ff, #5e5ce6);
+  }
+  .hero-head { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
+  .hero-label { font-size: 13px; color: rgba(255,255,255,.78); }
+  .hero .row::before { background: rgba(255,255,255,.24); }
+  .hero .row-label { color: #fff; }
+  .hero .row-desc { color: rgba(255,255,255,.62); }
+  .hero .row-value, .hero .row-value.dark { color: #fff; }
+  .hero-pick { margin-left: auto; display: flex; align-items: center; gap: 2px; }
+  .hero-pick select {
+    border: none; outline: none; cursor: pointer; padding: 2px 15px 2px 6px;
+    background-color: transparent; font-family: inherit; font-size: 13px; color: #fff;
+    -webkit-appearance: none; appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%23ffffff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 2px center;
+  }
+  /* 下拉展开后的选项列表是系统渲染的白底，字得跟着变深 */
+  .hero-pick select option { color: var(--label); }
+  .hero-value {
+    font-size: 34px; font-weight: 700; letter-spacing: -1px; line-height: 1.15; color: #fff;
+  }
+  .hero-sub { margin: 3px 0 14px; font-size: 12.5px; color: rgba(255,255,255,.72); }
+  .hero .row { margin: 0 -16px; padding-bottom: 13px; }
+
+  /* 占比条 */
+  .row-value.ratio { display: flex; align-items: center; gap: 9px; }
+  .ratio-bar { width: 118px; height: 6px; border-radius: 3px; background: var(--sep-soft); overflow: hidden; }
+  .ratio-bar .fill { display: block; height: 100%; border-radius: 3px; background: var(--red); transition: width .3s ease; }
+  #deductRatio { font-size: 15px; font-weight: 600; color: var(--label); }
+
+  .si-detail { font-size: 12.5px; line-height: 1.85; color: var(--label-2); }
+
+  /* ── 提示条 ── */
+  .warn-box, .crit-warn {
+    margin-top: 10px; padding: 10px 14px; border-radius: 10px;
+    font-size: 12.5px; line-height: 1.55;
+  }
+  .warn-box  { background: #fff4e0; color: #8a5a00; }
+  .crit-warn { background: #ffeceb; color: #b3271e; }
+  .warn-box.hidden, .crit-warn.hidden { display: none; }
+
+  /* ── 主按钮 ── */
+  .btn-apply {
+    display: block; width: 100%; margin-top: 18px; padding: 13px; cursor: pointer;
+    border: none; border-radius: 12px; background: var(--blue);
+    font-family: inherit; font-size: 16px; font-weight: 600; color: #fff;
+    transition: opacity .15s;
+  }
+  .btn-apply:active { opacity: .75; }
+
+  /* ── 日历 ── */
+  .cal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; position: relative;
+  }
+  /* 通栏，好和下面日历网格的 border-top 对上 */
+  .cal-header::after {
+    content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px; background: var(--sep-soft);
+  }
+  .cal-header button {
+    width: 30px; height: 30px; flex-shrink: 0; cursor: pointer;
+    border: none; border-radius: 8px; background: transparent;
+    font-size: 12px; color: var(--blue);
+  }
+  .cal-header button:active { background: #eaeaef; }
+  .cal-header .cal-month { font-size: 16px; font-weight: 600; }
+
+  .cal-weekdays {
+    display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; padding: 8px 6px 6px;
+  }
+  .cal-day-name { font-size: 11px; font-weight: 500; color: var(--label-2); }
+  .cal-day-name.we { color: var(--label-3); }
+
+  #calendarGrid {
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    gap: 1px; background: var(--sep-soft);
+    border-top: 1px solid var(--sep-soft);
+  }
+  .cal-cell {
+    display: flex; flex-direction: column; align-items: center;
+    background: var(--card); min-height: 56px; padding: 5px 2px 6px;
+  }
+  .cal-cell.rest        { background: #fafafc; }
+  .cal-cell.statutory   { background: #fff1f0; }
+  .cal-cell.makeup      { background: #f0f7ff; }
+  .cal-cell.other-month { background: #fafafc; }
+  .cal-cell .day-num { font-size: 11.5px; font-weight: 500; color: var(--label); line-height: 1.25; }
+  .cal-cell.rest      .day-num { color: var(--label-2); }
+  .cal-cell.statutory .day-num { color: var(--red); }
+  .cal-cell.makeup    .day-num { color: var(--blue); }
+  .cal-cell .hol-name { display: block; font-size: 9px; font-weight: 400; margin-top: 1px; }
+  .cal-cell input {
+    width: 100%; max-width: 44px; margin-top: 3px; padding: 2px 0;
+    border: none; border-radius: 6px; background: #f2f2f7; outline: none;
+    text-align: center; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--label);
+    font-variant-numeric: tabular-nums;
+  }
+  .cal-cell input:focus { background: var(--blue-tint); box-shadow: inset 0 0 0 1.5px var(--blue); }
+  .cal-cell .tag { margin-top: 3px; font-size: 9.5px; font-weight: 600; color: var(--label-2); }
+  .cal-cell .tag.ot15 { color: var(--orange); }
+  .cal-cell .tag.ot2  { color: var(--red); }
+  .cal-cell .tag.ot3  { color: var(--red); }
+
+  .cal-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .cal-legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .cal-legend i { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; border: 1px solid var(--sep); }
+  .lg-work { background: var(--card); }
+  .lg-rest { background: #fafafc; }
+  .lg-stat { background: #fff1f0; border-color: #ffb3ae !important; }
+  .lg-make { background: #f0f7ff; border-color: #9ec9f5 !important; }
+
+  .sum-val { font-variant-numeric: tabular-nums; }
+  .sum-val.ot2, .sum-val.ot3 { color: var(--red); }
+  .sum-val.ot15 { color: var(--orange); }
+
+  /* ── 逐月明细表 ── */
+  .month-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .month-table-wrap::-webkit-scrollbar { height: 4px; }
+  .month-table-wrap::-webkit-scrollbar-thumb { background: var(--sep); border-radius: 2px; }
+
+  .month-table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 13px; }
+  .month-table th, .month-table td { padding: 8px 9px; text-align: right; white-space: nowrap; }
+  .month-table thead th {
+    font-size: 11.5px; font-weight: 500; color: var(--label-2);
+    border-bottom: 1px solid var(--sep-soft);
+  }
+  .month-table thead th:first-child,
+  .month-table tbody td:first-child,
+  .month-table tfoot td:first-child { text-align: left; }
+  .month-table th:first-child, .month-table td:first-child {
+    position: sticky; left: 0; background: var(--card);
+  }
+  .month-table tbody td {
+    border-bottom: 1px solid #f0f0f3; color: var(--label-2); font-variant-numeric: tabular-nums;
+  }
+  .month-table tbody tr.current td,
+  .month-table tbody tr.current td:first-child { background: var(--blue-tint); color: var(--label); font-weight: 600; }
+  .month-table tbody tr.filled td:first-child::after {
+    content: ''; display: inline-block; width: 5px; height: 5px; margin-left: 5px;
+    border-radius: 50%; background: var(--green); vertical-align: middle;
+  }
+  .month-table tfoot td {
+    padding-top: 10px; font-weight: 600; color: var(--label);
+    border-top: 1px solid var(--sep-soft); font-variant-numeric: tabular-nums;
+  }
+  .month-table .col-tax { color: var(--red); }
+  .month-table .col-net { color: var(--green); }
+  .month-table input {
+    width: 66px; padding: 4px 7px; border: none; border-radius: 7px;
+    background: #f2f2f7; outline: none; text-align: right;
+    font-family: inherit; font-size: 12.5px; color: var(--label); font-variant-numeric: tabular-nums;
+  }
+  .month-table input:focus { background: var(--blue-tint); box-shadow: inset 0 0 0 1.5px var(--blue); }
+
+  /* ── 说明 ── */
+  .note { margin-top: 4px; }
+  .note li { position: relative; padding-left: 13px; margin-bottom: 7px; list-style: none; }
+  .note li:last-child { margin-bottom: 0; }
+  .note li::before { content: '·'; position: absolute; left: 3px; top: -1px; }
+  .note strong { font-weight: 600; color: var(--label); }
+  .note .highlight-num { color: var(--label); font-weight: 600; }
+
+  .footer { margin-top: 22px; text-align: center; font-size: 11.5px; color: var(--label-3); }
+
+  /* ── 安装横幅 ── */
   .install-banner {
     position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
-    background: linear-gradient(135deg, #7c5cfc, #5b8def);
-    color: #fff; padding: 12px 16px; font-size: 13px;
-    display: flex; align-items: center; justify-content: space-between;
-    gap: 10px; box-shadow: 0 2px 16px rgba(124,92,252,0.3);
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; font-size: 13px; color: #fff; background: var(--blue);
   }
   .install-banner.hidden { display: none; }
   .install-banner .msg { flex: 1; min-width: 0; }
-  .install-banner button { flex-shrink: 0; border: none; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
-  .install-banner .btn-install { background: #fff; color: #7c5cfc; }
-  .install-banner .btn-close { background: rgba(255,255,255,0.2); color: #fff; margin-left: 4px; }
-
-  /* ── Calendar ── */
-  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
-  .cal-header button {
-    width: 34px; height: 34px; border: 1px solid #e8e4f0; border-radius: 10px;
-    background: #fff; font-size: 16px; cursor: pointer; color: #5a5470; flex-shrink: 0; font-family: inherit;
+  .install-banner button {
+    flex-shrink: 0; cursor: pointer; padding: 6px 13px; border: none; border-radius: 8px;
+    font-family: inherit; font-size: 12.5px; font-weight: 600;
   }
-  .cal-header button:hover { background: #f5f0ff; }
-  .cal-header .cal-month { font-size: 16px; font-weight: 700; color: #37314b; }
-  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; }
-  .cal-day-name { font-size: 11px; color: #b0a8c4; font-weight: 600; padding: 6px 0; }
-  .cal-day-name.we { color: #f4727b; }
+  .install-banner .btn-install { background: #fff; color: var(--blue); }
+  .install-banner .btn-close   { background: rgba(255,255,255,.22); color: #fff; padding: 6px 10px; }
 
-  .cal-cell { border-radius: 10px; padding: 3px 1px 5px; background: #faf9fd; border: 1px solid transparent; min-height: 58px; }
-  .cal-cell.rest      { background: #f8f5fa; }
-  .cal-cell.statutory { background: #fff5f5; border-color: #f4727b; }
-  .cal-cell.makeup    { background: #eef4ff; border-color: #5b8def; }
-  .cal-cell.other-month { opacity: 0.25; }
-  .cal-cell .day-num { font-size: 11px; color: #8e8a9e; margin-bottom: 2px; line-height: 1.3; }
-  .cal-cell.rest .day-num      { color: #f4727b; }
-  .cal-cell.statutory .day-num { color: #e0314f; font-weight: 700; }
-  .cal-cell.makeup .day-num    { color: #2f6fd0; font-weight: 700; }
-  .cal-cell .hol-name { font-size: 9px; display: block; }
-  .cal-cell input {
-    width: 42px; padding: 3px 2px; border: 1px solid #e8e4f0; border-radius: 6px;
-    font-size: 12px; text-align: center; background: #fff; color: #2d2a3e; outline: none; font-family: inherit;
+  /* ── Responsive ── */
+  @media (max-width: 400px) {
+    .app { padding: 18px 12px 44px; }
+    .row { padding: 9px 13px; gap: 8px; }
+    .row::before { left: 13px; }
+    .group-title, .group-foot { padding-left: 13px; padding-right: 13px; }
+    .icons .row::before { left: 48px; }
+    .icons .row.row-block::before { left: 13px; }
+    .hero { padding: 14px 13px 0; }
+    .hero .row { margin: 0 -13px; }
+    .hero-value { font-size: 30px; }
+    .cal-cell { min-height: 52px; }
+    .cal-cell input { font-size: 12px; }
+    .ratio-bar { width: 88px; }
   }
-  .cal-cell input:focus { border-color: #7c5cfc; box-shadow: 0 0 0 2px rgba(124,92,252,0.08); }
-  .cal-cell .tag { font-size: 9px; padding: 0 4px; border-radius: 4px; display: inline-block; margin-top: 2px; }
-  .cal-cell .tag.ot15 { background: #fff0e0; color: #e07b00; }
-  .cal-cell .tag.ot2  { background: #ffe0e0; color: #d04040; }
-  .cal-cell .tag.ot3  { background: #ffd0d0; color: #b02020; }
 
-  .cal-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; font-size: 11px; color: #8e8a9e; }
-  .cal-legend span { display: inline-flex; align-items: center; gap: 4px; }
-  .cal-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; border: 1px solid transparent; }
-  .lg-work { background: #faf9fd; border-color: #e8e4f0 !important; }
-  .lg-rest { background: #f8f5fa; border-color: #ddd5e5 !important; }
-  .lg-stat { background: #fff5f5; border-color: #f4727b !important; }
-  .lg-make { background: #eef4ff; border-color: #5b8def !important; }
-
-  .cal-summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0ecf8; }
-  .cal-summary .sum-item { text-align: center; }
-  .cal-summary .sum-val { font-size: 18px; font-weight: 700; }
-  .cal-summary .sum-label { font-size: 10px; color: #b0a8c4; margin-top: 2px; }
-  .cal-summary .sum-val.req    { color: #8e8a9e; }
-  .cal-summary .sum-val.normal { color: #5b8def; }
-  .cal-summary .sum-val.ot15   { color: #f5a623; }
-  .cal-summary .sum-val.ot2    { color: #f4727b; }
-  .cal-summary .sum-val.ot3    { color: #e0314f; }
-
-  .btn-apply {
-    display: block; width: 100%; margin-top: 10px; padding: 10px; border: none;
-    border-radius: 12px; background: linear-gradient(135deg, #7c5cfc, #5b8def);
-    color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
-  }
-  .btn-apply:hover { opacity: 0.9; }
-  .btn-batch { flex: 1; padding: 6px 4px; border: 1px solid #e8e4f0; border-radius: 8px; background: #fff; font-size: 11px; color: #5a5470; cursor: pointer; font-family: inherit; }
-  .btn-batch:hover { background: #f5f0ff; }
-
-  .year-pick { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5a5470; }
-  .year-pick select { padding: 6px 10px; border: 1.5px solid #e8e4f0; border-radius: 10px; background: #faf9fd; font-size: 13px; font-family: inherit; color: #2d2a3e; outline: none; }
-  .filled-hint { font-size: 11px; color: #b0a8c4; }
-  .warn-box { margin-top: 10px; padding: 10px 12px; background: #fff8f0; border: 1px solid #f5d5a0; border-radius: 10px; font-size: 11.5px; color: #a06000; }
-  .warn-box.hidden { display: none; }
-
-  /* ── Monthly table ── */
-  .month-table-wrap { overflow-x: auto; margin-top: 4px; -webkit-overflow-scrolling: touch; }
-  .month-table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 12px; }
-  .month-table th, .month-table td { padding: 7px 8px; text-align: right; white-space: nowrap; }
-  .month-table thead th { color: #b0a8c4; font-weight: 600; font-size: 11px; border-bottom: 1.5px solid #f0ecf8; text-align: right; }
-  .month-table thead th:first-child, .month-table tbody td:first-child { text-align: left; }
-  .month-table tbody tr { border-bottom: 1px solid #f7f4fb; }
-  .month-table tbody tr.current { background: rgba(124,92,252,0.06); font-weight: 700; }
-  .month-table tbody tr.filled td:first-child::after { content: ' ●'; color: #10b76f; font-size: 8px; vertical-align: middle; }
-  .month-table tfoot td, .month-table tfoot th { padding-top: 10px; border-top: 2px solid #e8e4f0; font-weight: 700; font-size: 12.5px; }
-  .month-table .col-tax { color: #f4727b; }
-  .month-table .col-net { color: #10b76f; }
-  .month-table input {
-    width: 68px; padding: 3px 6px; border: 1px solid #e8e4f0; border-radius: 6px;
-    font-size: 11.5px; text-align: right; background: #fff; color: #2d2a3e; outline: none; font-family: inherit;
-  }
-  .month-table input:focus { border-color: #7c5cfc; box-shadow: 0 0 0 2px rgba(124,92,252,0.08); }
-  .table-hint { font-size: 11px; color: #b0a8c4; margin-top: 8px; line-height: 1.7; }
-
-  .crit-warn { margin-top: 10px; padding: 10px 12px; background: #fff5f5; border: 1px solid #f4bcbc; border-radius: 10px; font-size: 11.5px; color: #c02020; }
-  .crit-warn.hidden { display: none; }
-
-  @media (max-width: 500px) {
-    .cal-cell { min-height: 52px; padding: 2px 1px 4px; }
-    .cal-cell input { width: 34px; font-size: 11px; padding: 2px 1px; }
-    .cal-summary { grid-template-columns: repeat(3, 1fr); }
-    .cal-summary .sum-val { font-size: 15px; }
-    .app { padding: 20px 12px 50px; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
   }
 </style>
 </head>
@@ -253,314 +378,276 @@
 
 <!-- Install Banner -->
 <div class="install-banner hidden" id="installBanner">
-  <span class="msg">📱 <strong>安装到桌面</strong> · 像 App 一样使用</span>
-  <button class="btn-install" id="btnInstall" onclick="installApp()">立即安装</button>
+  <span class="msg">安装到桌面，像 App 一样使用</span>
+  <button class="btn-install" id="btnInstall" onclick="installApp()">安装</button>
   <button class="btn-close" onclick="dismissBanner()">✕</button>
 </div>
 
 <div class="app">
 
-  <div class="header">
-    <div class="logo">🧮</div>
-    <h1>深圳薪资计算器</h1>
-    <p class="subtitle">
-      <span class="tag">深圳一档社保</span>
-      <span class="tag">累计预扣个税</span>
-      <span class="tag">调休已校准</span>
-    </p>
-  </div>
-
-  <div class="tab-nav">
-    <button class="tab-btn active" onclick="switchTab('calendar', this)">📅 日历填工时</button>
-    <button class="tab-btn" onclick="switchTab('salary', this)">💰 薪资计算</button>
-  </div>
+  <nav class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('calendar', this)">日历填工时</button>
+    <button class="tab-btn" onclick="switchTab('salary', this)">薪资计算</button>
+  </nav>
 
   <!-- ══ Tab: Calendar ══ -->
   <div class="tab-panel active" id="tab-calendar">
-  <div class="card">
-    <div class="card-title">
-      <span class="icon icon-result">📅</span>日历填工时
-      <span class="filled-hint" style="margin-left:auto;" id="filledHint">已填 0/12 个月</span>
+
+    <div class="group">
+      <div class="group-title">工时填写<span id="filledHint">已填 0/12 个月</span></div>
+      <div class="card">
+        <div class="cal-header">
+          <button onclick="changeMonth(-1)" aria-label="上个月">◀</button>
+          <span class="cal-month" id="calMonthTitle">—</span>
+          <button onclick="changeMonth(1)" aria-label="下个月">▶</button>
+        </div>
+        <div class="cal-weekdays">
+          <div class="cal-day-name">一</div><div class="cal-day-name">二</div><div class="cal-day-name">三</div>
+          <div class="cal-day-name">四</div><div class="cal-day-name">五</div>
+          <div class="cal-day-name we">六</div><div class="cal-day-name we">日</div>
+        </div>
+        <div id="calendarGrid"></div>
+      </div>
+      <div class="group-foot">
+        <div class="cal-legend">
+          <span><i class="lg-work"></i>工作日 8h 内正常</span>
+          <span><i class="lg-rest"></i>休息日 全额 2 倍</span>
+          <span><i class="lg-stat"></i>法定节假日 全额 3 倍</span>
+          <span><i class="lg-make"></i>调休补班 按正常工作日</span>
+        </div>
+      </div>
+      <div class="warn-box hidden" id="calWarn"></div>
     </div>
 
-    <div class="cal-header">
-      <button onclick="changeMonth(-1)">◀</button>
-      <span class="cal-month" id="calMonthTitle">—</span>
-      <button onclick="changeMonth(1)">▶</button>
+    <div class="group">
+      <div class="group-title">本月工时</div>
+      <div class="card list icons">
+        <div class="row"><span class="row-icon ic-gray">勤</span><span class="row-label">应出勤</span><span class="row-value sum-val req" id="sumRequired">0h</span></div>
+        <div class="row"><span class="row-icon ic-blue">正</span><span class="row-label">正常工时</span><span class="row-value dark sum-val normal" id="sumNormal">0h</span></div>
+        <div class="row"><span class="row-icon ic-orange">日</span><span class="row-label">工作日加班 <span class="sub">1.5 倍</span></span><span class="row-value sum-val ot15" id="sumOT15">0h</span></div>
+        <div class="row"><span class="row-icon ic-red">休</span><span class="row-label">休息日加班 <span class="sub">2 倍</span></span><span class="row-value sum-val ot2" id="sumOT2">0h</span></div>
+        <div class="row"><span class="row-icon ic-pink">假</span><span class="row-label">法定假加班 <span class="sub">3 倍</span></span><span class="row-value sum-val ot3" id="sumOT3">0h</span></div>
+      </div>
     </div>
 
-    <div class="cal-grid">
-      <div class="cal-day-name">一</div><div class="cal-day-name">二</div><div class="cal-day-name">三</div>
-      <div class="cal-day-name">四</div><div class="cal-day-name">五</div>
-      <div class="cal-day-name we">六</div><div class="cal-day-name we">日</div>
-    </div>
-    <div class="cal-grid" id="calendarGrid"></div>
-
-    <div class="cal-legend">
-      <span><i class="lg-work"></i>工作日 8h 内正常</span>
-      <span><i class="lg-rest"></i>休息日 全额 2 倍</span>
-      <span><i class="lg-stat"></i>法定节假日 全额 3 倍</span>
-      <span><i class="lg-make"></i>调休补班 按正常工作日</span>
+    <div class="group">
+      <div class="card list">
+        <button class="row row-action" onclick="batchFill('default')">按默认填充本月</button>
+        <button class="row row-action" onclick="batchFill('clear')">重置本月</button>
+        <button class="row row-action danger" onclick="clearYear()">重置全年</button>
+      </div>
     </div>
 
-    <div class="warn-box hidden" id="calWarn"></div>
-
-    <div class="cal-summary">
-      <div class="sum-item"><div class="sum-val req"    id="sumRequired">0h</div><div class="sum-label">应出勤</div></div>
-      <div class="sum-item"><div class="sum-val normal" id="sumNormal">0h</div><div class="sum-label">正常工时</div></div>
-      <div class="sum-item"><div class="sum-val ot15"   id="sumOT15">0h</div><div class="sum-label">工作日OT 1.5x</div></div>
-      <div class="sum-item"><div class="sum-val ot2"    id="sumOT2">0h</div><div class="sum-label">休息日OT 2x</div></div>
-      <div class="sum-item"><div class="sum-val ot3"    id="sumOT3">0h</div><div class="sum-label">法定假OT 3x</div></div>
-    </div>
-
-    <div style="display:flex;gap:6px;margin-top:12px;">
-      <button class="btn-batch" onclick="batchFill('default')">📋 按默认填充</button>
-      <button class="btn-batch" onclick="batchFill('clear')">🗑 重置本月</button>
-      <button class="btn-batch" onclick="clearYear()">🧹 重置全年</button>
-    </div>
-    <button class="btn-apply" onclick="switchTab('salary')">💰 查看薪资计算</button>
-  </div>
+    <button class="btn-apply" onclick="switchTab('salary')">查看薪资计算</button>
   </div><!-- /tab-calendar -->
 
   <!-- ══ Tab: Salary ══ -->
   <div class="tab-panel" id="tab-salary">
 
-  <!-- 工资组成 -->
-  <div class="card">
-    <div class="card-title">
-      <span class="icon icon-salary">💼</span>工资组成
-      <span class="year-pick" style="margin-left:auto;">
-        <span>计税年度</span>
-        <select id="taxYear" onchange="onYearChange()"></select>
-      </span>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>📌 底薪（元/月）</label>
-        <input type="number" id="baseSalary" placeholder="输入底薪" step="0.01" min="0" oninput="calc()">
-        <div class="unit">满勤全额，缺勤按 底薪÷21.75÷8 扣</div>
-      </div>
-      <div class="form-group">
-        <label>🏆 绩效奖金（默认每月）</label>
-        <input type="number" id="bonus" placeholder="输入奖金" step="0.01" min="0" oninput="calc()">
-        <div class="unit">可在下方逐月明细中单独覆盖</div>
-      </div>
-      <div class="form-group">
-        <label>🍱 补贴（默认每月）</label>
-        <input type="number" id="subsidy" placeholder="餐补/交通等" step="0.01" min="0" oninput="calc()">
-        <div class="unit">可在下方逐月明细中单独覆盖</div>
-      </div>
-      <div class="form-group">
-        <label>🧧 年终奖</label>
-        <input type="number" id="yearEndBonus" placeholder="年度一次性" step="0.01" min="0" oninput="calc()">
-        <div class="unit">单独计税，不并入累计预扣</div>
-      </div>
-    </div>
-    <div class="crit-warn hidden" id="yebWarn"></div>
-  </div>
-
-  <!-- 社保公积金 -->
-  <div class="card">
-    <div class="card-title" onclick="toggleBox('siBody','siIcon')" style="cursor:pointer;">
-      <span class="icon icon-gear">⚙️</span>社保 · 公积金
-      <span style="font-size:11px;color:#b0a8c4;font-weight:400;margin-left:4px;">（默认按最低基数）</span>
-      <span style="margin-left:auto;font-size:12px;color:#b0a8c4;" id="siIcon">▼</span>
-    </div>
-    <div id="siBody" style="display:none;">
-      <div class="form-row">
-        <div class="form-group">
-          <label>社保缴费基数</label>
-          <input type="number" id="siBase" placeholder="留空=按最低基数" step="0.01" min="0" oninput="calc()">
-          <div class="unit">各险种分别在自己的上下限内取值</div>
+    <!-- 结果（置顶） -->
+    <div class="group">
+      <div class="card hero">
+        <div class="hero-head">
+          <span class="hero-label">税后到手 · 实发</span>
+          <span class="hero-pick">
+            <select id="taxYear" onchange="onYearChange()"></select>
+            <select id="taxMonth" onchange="calc()"></select>
+          </span>
         </div>
-        <div class="form-group">
-          <label>公积金缴费基数</label>
-          <input type="number" id="hfBase" placeholder="留空=按最低 2,520" step="0.01" min="0" oninput="calc()">
-          <div class="unit">下限 2,520（深圳最低工资）· 上限 48,471</div>
-        </div>
-        <div class="form-group">
-          <label>公积金个人比例</label>
-          <select id="hfRate" onchange="calc()">
-            <option value="0.05">5%</option>
-            <option value="0.06">6%</option>
-            <option value="0.07">7%</option>
-            <option value="0.08">8%</option>
-            <option value="0.09">9%</option>
-            <option value="0.10">10%</option>
-            <option value="0.11">11%</option>
-            <option value="0.12">12%</option>
-          </select>
-        </div>
-      </div>
-      <div id="siDetail" style="font-size:11px;color:#b0a8c4;line-height:1.8;"></div>
-    </div>
-  </div>
-
-  <!-- 专项附加扣除 -->
-  <div class="card">
-    <div class="card-title" onclick="toggleBox('deductionsBody','dedToggleIcon')" style="cursor:pointer;">
-      <span class="icon icon-deduct">📝</span>专项附加扣除
-      <span style="font-size:11px;color:#b0a8c4;font-weight:400;margin-left:4px;">（选填）</span>
-      <span style="margin-left:auto;font-size:12px;color:#b0a8c4;" id="dedToggleIcon">▼</span>
-    </div>
-    <div id="deductionsBody" style="display:none;">
-      <div class="form-row">
-        <div class="form-group">
-          <label>👶 子女教育</label>
-          <input type="number" id="dedChildEdu" placeholder="0个" step="1" min="0" max="20" oninput="calc()">
-          <div class="unit">每个 2,000 元/月</div>
-        </div>
-        <div class="form-group">
-          <label>🍼 3岁以下婴幼儿照护</label>
-          <input type="number" id="dedInfant" placeholder="0个" step="1" min="0" max="20" oninput="calc()">
-          <div class="unit">每个 2,000 元/月</div>
-        </div>
-        <div class="form-group">
-          <label>📚 继续教育</label>
-          <select id="dedContEdu" onchange="calc()">
-            <option value="0">无</option>
-            <option value="400">学历教育 400元/月</option>
-            <option value="300">职业资格 3,600元/年</option>
-          </select>
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label>🏠 住房支出（二选一）</label>
-          <select id="dedHousing" onchange="calc()">
-            <option value="0">无</option>
-            <option value="1000">住房贷款利息 1,000元/月</option>
-            <option value="1500">住房租金 · 深圳 1,500元/月</option>
-            <option value="1100">住房租金 · 人口&gt;100万市 1,100</option>
-            <option value="800">住房租金 · 人口≤100万市 800</option>
-          </select>
-          <div class="unit">同一年度内房贷利息与租金不得同时享受</div>
-        </div>
-        <div class="form-group">
-          <label>👴 赡养老人</label>
-          <select id="dedElderly" onchange="calc()">
-            <option value="0">无</option>
-            <option value="3000">独生子女 3,000元/月</option>
-            <option value="1500">非独生子女 1,500元/月</option>
-          </select>
-          <div class="unit">非独生每人分摊不超过 1,500</div>
-        </div>
-        <div class="form-group">
-          <label>🏥 大病医疗</label>
-          <input type="text" value="汇算清缴时扣除" disabled
-                 style="background:#f5f3f9;color:#b0a8c4;cursor:not-allowed;">
-          <div class="unit">按规定不在预扣预缴环节扣除</div>
+        <div class="hero-value" id="afterTaxSalary">¥0</div>
+        <div class="hero-sub" id="afterTaxAnnual">年度合计 ¥0</div>
+        <div class="row">
+          <div class="row-main">
+            <div class="row-label">税前月薪 · 应发</div>
+            <div class="row-desc" id="preTaxAnnual">年度合计 ¥0</div>
+          </div>
+          <span class="row-value dark" id="preTaxSalary">¥0</span>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- 计算结果 -->
-  <div class="card">
-    <div class="card-title">
-      <span class="icon icon-result">✨</span>计算结果
-      <span class="year-pick" style="margin-left:auto;">
-        <span>月份</span>
-        <select id="taxMonth" onchange="calc()"></select>
-      </span>
-    </div>
-
-    <div class="result-grid">
-      <div class="result-item pre-tax">
-        <div class="label">📊 税前月薪</div>
-        <div class="value" id="preTaxSalary">¥0</div>
-        <div class="badge">应发工资</div>
-        <div class="annual" id="preTaxAnnual">年度合计 ¥0</div>
-      </div>
-      <div class="result-item after-tax">
-        <div class="label">💎 税后月薪（到手）</div>
-        <div class="value" id="afterTaxSalary">¥0</div>
-        <div class="badge">实发工资</div>
-        <div class="annual" id="afterTaxAnnual">年度合计 ¥0</div>
+    <!-- 当月收入 -->
+    <div class="group">
+      <div class="group-title">当月收入</div>
+      <div class="card list icons">
+        <div class="row"><span class="row-icon ic-blue">薪</span><span class="row-label">底薪<span class="sub" id="attendNote"></span></span><span class="row-value dark" id="rowBase">¥0.00</span></div>
+        <div class="row"><span class="row-icon ic-orange">奖</span><span class="row-label">绩效奖金</span><span class="row-value dark" id="rowBonus">¥0.00</span></div>
+        <div class="row"><span class="row-icon ic-teal">补</span><span class="row-label">补贴</span><span class="row-value dark" id="rowSubsidy">¥0.00</span></div>
+        <div class="row"><span class="row-icon ic-purple">加</span><span class="row-label">加班费<span class="sub" id="otNote"></span></span><span class="row-value dark" id="rowOT">¥0.00</span></div>
+        <div class="row strong"><span class="row-icon ic-green">计</span><span class="row-label">税前月薪合计</span><span class="row-value pos" id="rowGross">¥0.00</span></div>
       </div>
     </div>
 
-    <hr class="divider">
-
-    <div class="breakdown">
-      <table>
-        <tr class="section-header"><th>📥 当月收入明细</th><td></td></tr>
-        <tr><th>底薪 <span class="sub" id="attendNote"></span></th><td id="rowBase">¥0.00</td></tr>
-        <tr><th>绩效奖金</th><td id="rowBonus">¥0.00</td></tr>
-        <tr><th>补贴</th><td id="rowSubsidy">¥0.00</td></tr>
-        <tr class="sep"><th>加班费合计 <span class="sub" id="otNote"></span></th><td id="rowOT">¥0.00</td></tr>
-        <tr class="highlight"><th>税前月薪合计</th><td id="rowGross" style="color:#5b3de8;">¥0.00</td></tr>
-
-        <tr class="section-header"><th>📤 当月扣款明细</th><td></td></tr>
-        <tr class="deduct-row"><th>社保 · 深圳一档 <span class="sub" id="siNote"></span></th><td id="rowSocialIns">-¥0.00</td></tr>
-        <tr class="deduct-row"><th>住房公积金 <span class="sub" id="hfNote"></span></th><td id="rowHousingFund">-¥0.00</td></tr>
-        <tr class="deduct-row sep"><th>个人所得税 <span class="sub">（累计预扣预缴）</span></th><td id="rowTax">-¥0.00</td></tr>
-        <tr class="total"><th>当月扣款合计</th><td id="rowTotalDeduct">-¥0.00</td></tr>
-      </table>
+    <!-- 当月扣款 -->
+    <div class="group">
+      <div class="group-title">当月扣款</div>
+      <div class="card list icons">
+        <div class="row"><span class="row-icon ic-indigo">保</span><span class="row-label">社保 · 深圳一档<span class="sub" id="siNote"></span></span><span class="row-value neg" id="rowSocialIns">-¥0.00</span></div>
+        <div class="row"><span class="row-icon ic-teal">金</span><span class="row-label">住房公积金<span class="sub" id="hfNote"></span></span><span class="row-value neg" id="rowHousingFund">-¥0.00</span></div>
+        <div class="row"><span class="row-icon ic-red">税</span><span class="row-label">个人所得税<span class="sub">（累计预扣预缴）</span></span><span class="row-value neg" id="rowTax">-¥0.00</span></div>
+        <div class="row strong"><span class="row-icon ic-red">计</span><span class="row-label">扣款合计</span><span class="row-value neg" id="rowTotalDeduct">-¥0.00</span></div>
+        <div class="row">
+          <span class="row-icon ic-gray">比</span>
+          <span class="row-label">占税前比例</span>
+          <span class="row-value ratio">
+            <span class="ratio-bar"><span class="fill" id="ratioFill" style="width:0%"></span></span>
+            <strong id="deductRatio">0%</strong>
+          </span>
+        </div>
+      </div>
     </div>
 
-    <div class="ratio-bar-wrap">
-      <span>当月扣除占比</span>
-      <div class="ratio-bar"><div class="fill" id="ratioFill" style="width:0%"></div></div>
-      <strong id="deductRatio">0%</strong>
+    <!-- 工资组成 -->
+    <div class="group">
+      <div class="group-title">工资组成</div>
+      <div class="card list icons">
+        <div class="row"><span class="row-icon ic-blue">薪</span><span class="row-label">底薪</span>
+          <input type="number" class="row-input" id="baseSalary" placeholder="0" step="0.01" min="0" oninput="calc()"></div>
+        <div class="row"><span class="row-icon ic-orange">奖</span><span class="row-label">绩效奖金</span>
+          <input type="number" class="row-input" id="bonus" placeholder="0" step="0.01" min="0" oninput="calc()"></div>
+        <div class="row"><span class="row-icon ic-teal">补</span><span class="row-label">补贴</span>
+          <input type="number" class="row-input" id="subsidy" placeholder="0" step="0.01" min="0" oninput="calc()"></div>
+        <div class="row"><span class="row-icon ic-pink">年</span><span class="row-label">年终奖</span>
+          <input type="number" class="row-input" id="yearEndBonus" placeholder="0" step="0.01" min="0" oninput="calc()"></div>
+      </div>
+      <div class="group-foot">
+        底薪满勤全额，缺勤按 底薪÷21.75÷8 扣。奖金与补贴是每月默认值，可在「全年逐月明细」里按月覆盖。年终奖单独计税，不并入累计预扣。
+      </div>
+      <div class="crit-warn hidden" id="yebWarn"></div>
     </div>
-  </div>
 
-  <!-- 逐月明细 -->
-  <div class="card">
-    <div class="card-title">
-      <span class="icon icon-salary">📆</span>全年逐月明细
-      <span style="font-size:11px;color:#b0a8c4;font-weight:400;margin-left:auto;">奖金/补贴可逐月改</span>
+    <!-- 社保公积金 -->
+    <div class="group">
+      <div class="group-title">社保 · 公积金</div>
+      <div class="card list icons">
+        <div class="row row-tap" onclick="toggleBox('siBody','siIcon')">
+          <span class="row-icon ic-indigo">保</span>
+          <span class="row-label">缴费基数</span>
+          <span class="row-value">社保最低 · 公积金 3,000<i class="chev" id="siIcon">▼</i></span>
+        </div>
+        <div id="siBody" style="display:none;">
+          <div class="row"><span class="row-icon ic-indigo">社</span><span class="row-label">社保基数</span>
+            <input type="number" class="row-input" id="siBase" placeholder="按最低" step="0.01" min="0" oninput="calc()"></div>
+          <div class="row"><span class="row-icon ic-teal">金</span><span class="row-label">公积金基数</span>
+            <input type="number" class="row-input" id="hfBase" placeholder="默认 3,000" step="0.01" min="0" oninput="calc()"></div>
+          <div class="row"><span class="row-icon ic-gray">比</span><span class="row-label">公积金个人比例</span>
+            <select class="row-select" id="hfRate" onchange="calc()">
+              <option value="0.05">5%</option>
+              <option value="0.06">6%</option>
+              <option value="0.07">7%</option>
+              <option value="0.08">8%</option>
+              <option value="0.09">9%</option>
+              <option value="0.10">10%</option>
+              <option value="0.11">11%</option>
+              <option value="0.12">12%</option>
+            </select></div>
+          <div class="row row-block"><div class="si-detail" id="siDetail"></div></div>
+        </div>
+      </div>
+      <div class="group-foot">
+        社保留空按最低基数：养老 4,775~27,549、医疗一档 6,727~33,633、失业 2,520~44,265，各险种分别在自己的上下限内取值。公积金留空按 3,000 算，法定下限 2,520、上限 48,471。
+      </div>
     </div>
-    <div class="month-table-wrap">
-      <table class="month-table">
-        <thead>
-          <tr>
-            <th>月份</th><th>出勤</th><th>加班费</th><th>奖金</th><th>补贴</th>
-            <th>税前</th><th>累计应税</th><th>本月税</th><th>实发</th>
-          </tr>
-        </thead>
-        <tbody id="monthTableBody"></tbody>
-        <tfoot>
-          <tr>
-            <td>合计</td><td id="ftAttend">—</td><td id="ftOT">¥0</td>
-            <td id="ftBonus">¥0</td><td id="ftSub">¥0</td><td id="ftGross">¥0</td>
-            <td>—</td><td class="col-tax" id="ftTax">¥0</td><td class="col-net" id="ftNet">¥0</td>
-          </tr>
-        </tfoot>
-      </table>
-    </div>
-    <div class="table-hint">
-      ● 标记表示该月日历已填过工时；未填的月份按当月应出勤满勤、无加班估算。<br>
-      累计预扣下同样的税前月薪，1 月税最少、越到年底税越多，这是正常现象而非计算错误。
-    </div>
-  </div>
 
-  <!-- 年终奖 -->
-  <div class="card" id="yebCard">
-    <div class="card-title"><span class="icon icon-deduct">🧧</span>年终奖（单独计税）</div>
-    <div class="breakdown">
-      <table>
-        <tr><th>年终奖金额</th><td id="rowYEB">¥0.00</td></tr>
-        <tr><th>÷12 查表数 <span class="sub">用于确定税率</span></th><td id="rowYEBDiv">¥0.00</td></tr>
-        <tr><th>适用税率 / 速算扣除数</th><td id="rowYEBRate">—</td></tr>
-        <tr class="deduct-row sep"><th>年终奖个税</th><td id="rowYEBTax">-¥0.00</td></tr>
-        <tr class="total"><th>年终奖到手</th><td id="rowYEBNet" style="color:#10b76f;">¥0.00</td></tr>
-      </table>
+    <!-- 专项附加扣除 -->
+    <div class="group">
+      <div class="group-title">专项附加扣除</div>
+      <div class="card list icons">
+        <div class="row row-tap" onclick="toggleBox('deductionsBody','dedToggleIcon')">
+          <span class="row-icon ic-indigo">扣</span>
+          <span class="row-label">扣除项</span>
+          <span class="row-value">选填<i class="chev" id="dedToggleIcon">▼</i></span>
+        </div>
+        <div id="deductionsBody" style="display:none;">
+          <div class="row"><span class="row-icon ic-blue">教</span><span class="row-label">子女教育</span>
+            <input type="number" class="row-input" id="dedChildEdu" placeholder="0 个" step="1" min="0" max="20" oninput="calc()"></div>
+          <div class="row"><span class="row-icon ic-pink">幼</span><span class="row-label">3 岁以下婴幼儿照护</span>
+            <input type="number" class="row-input" id="dedInfant" placeholder="0 个" step="1" min="0" max="20" oninput="calc()"></div>
+          <div class="row"><span class="row-icon ic-purple">学</span><span class="row-label">继续教育</span>
+            <select class="row-select" id="dedContEdu" onchange="calc()">
+              <option value="0">无</option>
+              <option value="400">学历教育 400</option>
+              <option value="300">职业资格 3,600/年</option>
+            </select></div>
+          <div class="row"><span class="row-icon ic-orange">房</span><span class="row-label">住房支出</span>
+            <select class="row-select" id="dedHousing" onchange="calc()">
+              <option value="0">无</option>
+              <option value="1000">房贷利息 1,000</option>
+              <option value="1500">租金 · 深圳 1,500</option>
+              <option value="1100">租金 · 大城市 1,100</option>
+              <option value="800">租金 · 小城市 800</option>
+            </select></div>
+          <div class="row"><span class="row-icon ic-green">养</span><span class="row-label">赡养老人</span>
+            <select class="row-select" id="dedElderly" onchange="calc()">
+              <option value="0">无</option>
+              <option value="3000">独生子女 3,000</option>
+              <option value="1500">非独生 1,500</option>
+            </select></div>
+          <div class="row"><span class="row-icon ic-red">医</span><span class="row-label">大病医疗</span>
+            <input type="text" class="row-input" value="汇算清缴时扣除" disabled></div>
+        </div>
+      </div>
+      <div class="group-foot">
+        子女教育与婴幼儿照护每人 2,000 元/月。住房支出二选一，同一年度内房贷利息与租金不得同时享受；租金档位按城市人口划分，大城市指人口超 100 万的市。赡养老人非独生每人分摊不超过 1,500。大病医疗按规定不在预扣预缴环节扣除。
+      </div>
     </div>
-  </div>
 
-  <div class="note">
-    <p><strong>📋 计算规则说明</strong></p>
-    <p>• <strong>个税</strong>：累计预扣预缴法。累计应纳税所得额 = 累计收入 − <span class="highlight-num">5,000×月份数</span> − 累计社保公积金 − 累计专项附加扣除；本月税 = 累计应纳税额 − 已预扣累计额，结果为负时按 0 计，多缴部分次年汇算清缴退还</p>
-    <p>• <strong>社保</strong>：养老 8%（基数 4,775~27,549）· 医疗一档 2%（6,727~33,633）· 失业 0.2%（2,520~44,265）；工伤、生育、大病保险个人不缴。最低基数合计 <span class="highlight-num">521.58 元/月</span></p>
-    <p>• <strong>公积金</strong>：基数下限 <span class="highlight-num">2,520</span>（深圳最低工资）· 上限 48,471，个人比例 5%~12% 可选</p>
-    <p>• <strong>加班费</strong> = 底薪 ÷ <span class="highlight-num">21.75</span> ÷ 8 × 时数 × 倍数；工作日超 8h 部分 1.5 倍、休息日 2 倍、法定节假日 3 倍</p>
-    <p>• <strong>调休</strong>：法定节假日（3 倍）、调休放假日（2 倍）、调休补班日（按正常工作日、无加班费）三者已分别标注</p>
-    <p>• <strong>年终奖</strong>：÷12 查按月换算税率表定税率，再按 <span class="highlight-num">全额×税率−速算扣除数</span> 计税，不并入累计预扣</p>
-  </div>
+    <!-- 逐月明细 -->
+    <div class="group">
+      <div class="group-title">全年逐月明细<span>奖金 / 补贴可逐月改</span></div>
+      <div class="card plain">
+        <div class="month-table-wrap">
+          <table class="month-table">
+            <thead>
+              <tr>
+                <th>月份</th><th>出勤</th><th>加班费</th><th>奖金</th><th>补贴</th>
+                <th>税前</th><th>累计应税</th><th>本月税</th><th>实发</th>
+              </tr>
+            </thead>
+            <tbody id="monthTableBody"></tbody>
+            <tfoot>
+              <tr>
+                <td>合计</td><td id="ftAttend">—</td><td id="ftOT">¥0</td>
+                <td id="ftBonus">¥0</td><td id="ftSub">¥0</td><td id="ftGross">¥0</td>
+                <td>—</td><td class="col-tax" id="ftTax">¥0</td><td class="col-net" id="ftNet">¥0</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+      <div class="group-foot">
+        绿点表示该月日历已填过工时；未填的月份按当月应出勤满勤、无加班估算。累计预扣下同样的税前月薪，1 月税最少、越到年底税越多，这是正常现象而非计算错误。
+      </div>
+    </div>
 
-  <div class="footer">深圳薪资计算器 · 仅供参考，实际以工资条为准</div>
+    <!-- 年终奖 -->
+    <div class="group" id="yebCard">
+      <div class="group-title">年终奖 · 单独计税</div>
+      <div class="card list icons">
+        <div class="row"><span class="row-icon ic-pink">年</span><span class="row-label">年终奖金额</span><span class="row-value dark" id="rowYEB">¥0.00</span></div>
+        <div class="row"><span class="row-icon ic-gray">÷</span><span class="row-label">÷12 查表数<span class="sub">用于定税率</span></span><span class="row-value" id="rowYEBDiv">¥0.00</span></div>
+        <div class="row"><span class="row-icon ic-gray">率</span><span class="row-label">适用税率 / 速算扣除数</span><span class="row-value" id="rowYEBRate">—</span></div>
+        <div class="row"><span class="row-icon ic-red">税</span><span class="row-label">年终奖个税</span><span class="row-value neg" id="rowYEBTax">-¥0.00</span></div>
+        <div class="row strong"><span class="row-icon ic-green">手</span><span class="row-label">年终奖到手</span><span class="row-value pos" id="rowYEBNet">¥0.00</span></div>
+      </div>
+    </div>
+
+    <!-- 计算规则 -->
+    <div class="group">
+      <div class="group-title">计算规则</div>
+      <div class="card plain">
+        <ul class="note">
+          <li><strong>个税</strong>：累计预扣预缴法。累计应纳税所得额 = 累计收入 − <span class="highlight-num">5,000×月份数</span> − 累计社保公积金 − 累计专项附加扣除；本月税 = 累计应纳税额 − 已预扣累计额，结果为负时按 0 计，多缴部分次年汇算清缴退还</li>
+          <li><strong>社保</strong>：养老 8% · 医疗一档 2% · 失业 0.2%；工伤、生育、大病保险个人不缴。最低基数合计 <span class="highlight-num">521.58</span> 元/月</li>
+          <li><strong>公积金</strong>：默认按 <span class="highlight-num">3,000</span> 基数缴；法定下限 2,520（深圳最低工资）· 上限 48,471，个人比例 5%~12% 可选</li>
+          <li><strong>加班费</strong>：底薪 ÷ <span class="highlight-num">21.75</span> ÷ 8 × 时数 × 倍数；工作日超 8h 部分 1.5 倍、休息日 2 倍、法定节假日 3 倍</li>
+          <li><strong>调休</strong>：法定节假日（3 倍）、调休放假日（2 倍）、调休补班日（按正常工作日、无加班费）三者已分别标注</li>
+          <li><strong>年终奖</strong>：÷12 查按月换算税率表定税率，再按 <span class="highlight-num">全额×税率−速算扣除数</span> 计税，不并入累计预扣</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="footer">仅供参考，实际以工资条为准</div>
   </div><!-- /tab-salary -->
 </div>
 
@@ -581,7 +668,10 @@ var SOCIAL_INS = [
   { key: 'unemployment', name: '失业',     rate: 0.002, min: 2520, max: 44265 },
 ];
 
-var HF = { min: 2520, max: 48471, defaultRate: 0.05 };
+// min/max 是法定上下限（用户填了超出范围的值就夹到这里），
+// defaultBase 是「留空时按多少算」—— 单位实际按 3,000 缴，所以默认取 3,000 而非下限。
+// 两者不是一回事，别把 min 改成 3000：2,520 是深圳最低工资，是法规下限。
+var HF = { min: 2520, max: 48471, defaultBase: 3000, defaultRate: 0.05 };
 
 // 预扣率表一：居民个人工资薪金累计预扣预缴适用（年度口径）
 var TAX_ANNUAL = [
@@ -879,7 +969,7 @@ function getSocialIns() {
 
 function getHousingFund() {
   var custom = num('hfBase');
-  var base = custom > 0 ? clamp(custom, HF.min, HF.max) : HF.min;
+  var base = custom > 0 ? clamp(custom, HF.min, HF.max) : HF.defaultBase;
   var rate = parseFloat(document.getElementById('hfRate').value) || HF.defaultRate;
   return { total: r2(base * rate), base: base, rate: rate };
 }
@@ -970,8 +1060,9 @@ function calc() {
     totGross += x.gross; totNet += x.net; totTax += x.tax;
     totOT += x.otPay; totBonus += x.bonus; totSub += x.sub;
   });
+  // 「含年终奖」的口径由上方税后那行写全，这里只带金额，免得同一张卡里重复两遍
   document.getElementById('preTaxAnnual').textContent =
-    '年度合计（含年终奖）¥' + fmt0(totGross + yebInfo.yeb);
+    '年度 ¥' + fmt0(totGross + yebInfo.yeb);
   document.getElementById('afterTaxAnnual').textContent =
     '年度合计（含年终奖）¥' + fmt0(totNet + yebInfo.net);
 
