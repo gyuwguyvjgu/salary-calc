@@ -1,7 +1,7 @@
 {
   "name": "深圳薪资计算器",
   "short_name": "薪资计算",
-  "description": "深圳一档社保 · 公积金5% · 自动算个税",
+  "description": "深圳一档社保 · 累计预扣个税 · 调休已校准",
   "start_url": "index.html",
   "display": "standalone",
   "orientation": "portrait",
@@ -9,8 +9,20 @@
   "theme_color": "#7c5cfc",
   "icons": [
     {
-      "src": "icon.svg",
+      "src": "icon-512.png",
       "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     }
