@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>wuji薪资计算器</title>
+<title>深圳薪资计算器</title>
 <meta name="theme-color" content="#7c5cfc">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="薪资计算">
-<link rel="apple-touch-icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon-512.png">
 <link rel="manifest" href="manifest.json">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -21,358 +21,238 @@
     min-height: 100vh;
   }
 
-  .app {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 40px 20px 60px;
-  }
+  .app { max-width: 860px; margin: 0 auto; padding: 28px 18px 60px; }
 
   /* ── Header ── */
-  .header {
-    text-align: center;
-    margin-bottom: 36px;
-  }
+  .header { text-align: center; margin-bottom: 22px; }
   .header .logo {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 60px; height: 60px;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 56px; height: 56px;
     background: linear-gradient(135deg, #7c5cfc, #5b8def);
-    border-radius: 20px;
-    font-size: 30px;
-    margin-bottom: 16px;
+    border-radius: 18px; font-size: 28px; margin-bottom: 12px;
     box-shadow: 0 8px 28px rgba(124,92,252,0.22);
   }
-  .header h1 {
-    font-size: 26px;
-    font-weight: 700;
-    color: #5b34d8;
-    margin-bottom: 6px;
-  }
-  .header .subtitle {
-    font-size: 13px;
-    color: #8e8a9e;
-    letter-spacing: 0.5px;
-  }
+  .header h1 { font-size: 24px; font-weight: 700; color: #5b34d8; margin-bottom: 6px; }
+  .header .subtitle { font-size: 13px; color: #8e8a9e; }
   .header .subtitle .tag {
-    display: inline-block;
-    padding: 2px 10px;
-    border-radius: 20px;
-    background: rgba(124,92,252,0.08);
-    color: #7c5cfc;
-    font-size: 11px;
-    margin: 0 2px;
-    font-weight: 500;
+    display: inline-block; padding: 2px 10px; border-radius: 20px;
+    background: rgba(124,92,252,0.08); color: #7c5cfc; margin: 0 2px;
   }
+
+  /* ── Tab Nav ── */
+  .tab-nav { display: flex; margin-bottom: 14px; border-radius: 14px; overflow: hidden; background: #fff; border: 1px solid #eeeaf5; }
+  .tab-btn { flex: 1; padding: 12px; border: none; background: #fff; font-size: 14px; font-weight: 600; color: #8e8a9e; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+  .tab-btn.active { background: linear-gradient(135deg, #7c5cfc, #5b8def); color: #fff; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
 
   /* ── Card ── */
   .card {
-    background: #fff;
-    border: 1px solid #eeeaf5;
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 14px;
+    background: #fff; border: 1px solid #eeeaf5; border-radius: 16px;
+    padding: 20px; margin-bottom: 14px;
     box-shadow: 0 2px 16px rgba(124,92,252,0.05);
   }
-
   .card-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: #37314b;
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
+    font-size: 15px; font-weight: 700; color: #37314b;
+    margin-bottom: 12px; display: flex; align-items: center; gap: 10px;
   }
   .card-title .icon {
     display: flex; align-items: center; justify-content: center;
-    width: 28px; height: 28px;
-    border-radius: 10px;
-    font-size: 14px;
+    width: 28px; height: 28px; border-radius: 10px; font-size: 14px;
   }
-  .icon-salary  { background: #ece6fa; }
-  .icon-deduct  { background: #ffe8ee; }
-  .icon-result  { background: #d8f5e6; }
+  .icon-salary { background: #ece6fa; }
+  .icon-deduct { background: #ffe8ee; }
+  .icon-result { background: #d8f5e6; }
+  .icon-gear   { background: #e6effa; }
 
   /* ── Form ── */
-  .form-row {
-    display: flex; flex-wrap: wrap; gap: 14px;
-    margin-bottom: 14px;
-  }
+  .form-row { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 14px; }
   .form-group { flex: 1; min-width: 150px; }
-  .form-group label {
-    display: block;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #5a5470;
-    margin-bottom: 6px;
-  }
-  .form-group input,
-  .form-group select {
-    width: 100%;
-    padding: 11px 15px;
-    border: 1.5px solid #e8e4f0;
-    border-radius: 12px;
-    font-size: 14px;
-    font-family: inherit;
-    background: #faf9fd;
-    color: #2d2a3e;
-    outline: none;
+  .form-group label { display: block; font-size: 12.5px; font-weight: 600; color: #5a5470; margin-bottom: 6px; }
+  .form-group input, .form-group select {
+    width: 100%; padding: 11px 15px;
+    border: 1.5px solid #e8e4f0; border-radius: 12px;
+    font-size: 14px; font-family: inherit;
+    background: #faf9fd; color: #2d2a3e; outline: none;
   }
   .form-group input::placeholder { color: #c0bbcd; }
-  .form-group input:focus,
-  .form-group select:focus {
-    border-color: #7c5cfc;
-    background: #fff;
+  .form-group input:focus, .form-group select:focus {
+    border-color: #7c5cfc; background: #fff;
     box-shadow: 0 0 0 4px rgba(124,92,252,0.07);
   }
-  .form-group .unit {
-    font-size: 11px;
-    color: #b0a8c4;
-    margin-top: 4px;
-    padding-left: 2px;
-  }
-
-  /* Overtime section */
-  .ot-section {
-    border-top: 1px dashed #e8e4f0;
-    padding-top: 16px;
-    margin-top: 6px;
-  }
-  .ot-section .section-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: #5a5470;
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .ot-result {
-    font-size: 13px;
-    color: #7c5cfc;
-    margin-top: 10px;
-    padding: 10px 14px;
-    background: #f9f7ff;
-    border-radius: 10px;
-    display: none;
-  }
-  .ot-result.show { display: block; }
-  .ot-result .ot-total { font-weight: 700; font-size: 14px; }
-  .ot-result .ot-detail { color: #8e8a9e; font-size: 12px; margin-left: 6px; }
+  .form-group .unit { font-size: 11px; color: #b0a8c4; margin-top: 4px; padding-left: 2px; }
 
   /* ── Result Cards ── */
-  .result-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
+  .result-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   @media (max-width: 500px) {
     .result-grid { grid-template-columns: 1fr; }
     .form-group { min-width: 120px; }
   }
-
-  .result-item {
-    padding: 24px 20px;
-    border-radius: 16px;
-    text-align: center;
-  }
-  .result-item.pre-tax {
-    background: #f3eeff;
-    border: 1.5px solid #e4dcf8;
-  }
-  .result-item.after-tax {
-    background: #ecfdf5;
-    border: 1.5px solid #d0f0e0;
-  }
-
-  .result-item .label {
-    font-size: 12.5px;
-    color: #8b85a0;
-    font-weight: 500;
-    margin-bottom: 6px;
-  }
-  .result-item .value {
-    font-size: 32px;
-    font-weight: 800;
-    letter-spacing: -1px;
-    margin-bottom: 4px;
-  }
-  .result-item.pre-tax .value { color: #5b3de8; }
+  .result-item { padding: 22px 18px; border-radius: 16px; text-align: center; }
+  .result-item.pre-tax   { background: #f3eeff; border: 1.5px solid #e4dcf8; }
+  .result-item.after-tax { background: #ecfdf5; border: 1.5px solid #d0f0e0; }
+  .result-item .label { font-size: 12.5px; color: #8b85a0; font-weight: 500; margin-bottom: 6px; }
+  .result-item .value { font-size: 30px; font-weight: 800; letter-spacing: -1px; margin-bottom: 4px; }
+  .result-item.pre-tax .value   { color: #5b3de8; }
   .result-item.after-tax .value { color: #10b76f; }
-  .result-item .annual {
-    font-size: 12px;
-    color: #b0a8c4;
-    font-weight: 500;
-  }
-  .result-item .badge {
-    display: inline-block;
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 10px;
-    font-weight: 600;
-    margin-top: 6px;
-  }
-  .result-item.pre-tax .badge {
-    background: rgba(124,92,252,0.1);
-    color: #7c5cfc;
-  }
-  .result-item.after-tax .badge {
-    background: rgba(52,200,138,0.1);
-    color: #10b76f;
-  }
+  .result-item .annual { font-size: 12px; color: #b0a8c4; font-weight: 500; }
+  .result-item .badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 600; margin-top: 6px; }
+  .result-item.pre-tax .badge   { background: rgba(124,92,252,0.1); color: #7c5cfc; }
+  .result-item.after-tax .badge { background: rgba(52,200,138,0.1); color: #10b76f; }
 
   /* ── Breakdown Table ── */
-  hr.divider {
-    border: none;
-    border-top: 1.5px solid #f0ecf8;
-    margin: 22px 0 18px;
-  }
+  hr.divider { border: none; border-top: 1.5px solid #f0ecf8; margin: 22px 0 18px; }
   .breakdown table { width: 100%; font-size: 13px; border-collapse: collapse; }
-  .breakdown th, .breakdown td { padding: 7px 14px; text-align: right; }
-  .breakdown th {
-    color: #8e8a9e;
-    font-weight: 500;
-    text-align: left;
-    width: 55%;
-  }
+  .breakdown th, .breakdown td { padding: 7px 12px; text-align: right; }
+  .breakdown th { color: #8e8a9e; font-weight: 500; text-align: left; width: 58%; }
   .breakdown td { color: #3d3855; font-weight: 500; }
-  .breakdown .section-header td,
-  .breakdown .section-header th {
-    padding-top: 14px;
-    font-size: 11.5px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    color: #b0a8c4;
+  .breakdown .section-header td, .breakdown .section-header th {
+    padding-top: 14px; font-size: 11.5px; font-weight: 700; letter-spacing: 1px; color: #b0a8c4;
   }
-  .breakdown tr.sep td,
-  .breakdown tr.sep th {
-    border-bottom: 1px solid #f0ecf8;
-    padding-bottom: 12px;
-  }
-  .breakdown tr.highlight td,
-  .breakdown tr.highlight th {
-    background: rgba(124,92,252,0.03);
-    border-radius: 8px;
-    font-weight: 700;
+  .breakdown tr.sep td, .breakdown tr.sep th { border-bottom: 1px solid #f0ecf8; padding-bottom: 12px; }
+  .breakdown tr.highlight td, .breakdown tr.highlight th {
+    background: rgba(124,92,252,0.03); border-radius: 8px; font-weight: 700;
   }
   .breakdown .deduct-row td { color: #f4727b; }
   .breakdown .deduct-row th { color: #c0848b; }
-  .breakdown tr.total td,
-  .breakdown tr.total th {
-    border-top: 2px solid #e8e4f0;
-    padding-top: 14px;
-    font-weight: 700;
-    font-size: 14px;
-    color: #2d2a3e;
+  .breakdown tr.total td, .breakdown tr.total th {
+    border-top: 2px solid #e8e4f0; padding-top: 14px;
+    font-weight: 700; font-size: 14px; color: #2d2a3e;
   }
   .breakdown tr.total td { color: #e0314f; }
+  .breakdown .sub { font-size: 11px; color: #b0a8c4; font-weight: 400; }
 
-  /* Deduction ratio bar */
-  .ratio-bar-wrap {
-    display: flex; align-items: center; gap: 10px;
-    margin-top: 16px; font-size: 12px; color: #8e8a9e;
-  }
-  .ratio-bar {
-    flex: 1; height: 6px;
-    background: #f0ecf8;
-    border-radius: 3px;
-    overflow: hidden;
-  }
-  .ratio-bar .fill {
-    height: 100%;
-    border-radius: 3px;
-    background: linear-gradient(90deg, #c4b5fd, #f4727b);
-  }
+  .ratio-bar-wrap { display: flex; align-items: center; gap: 10px; margin-top: 16px; font-size: 12px; color: #8e8a9e; }
+  .ratio-bar { flex: 1; height: 6px; background: #f0ecf8; border-radius: 3px; overflow: hidden; }
+  .ratio-bar .fill { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #c4b5fd, #f4727b); }
   #deductRatio { color: #f4727b; font-weight: 700; }
 
   /* ── Note ── */
   .note {
-    font-size: 12px; color: #9a95ae;
-    margin-top: 16px; padding: 16px 18px;
-    background: #fff;
-    border-radius: 12px;
-    border: 1px solid #eeeaf5;
-    line-height: 1.8;
+    font-size: 12px; color: #9a95ae; margin-top: 16px; padding: 16px 18px;
+    background: #fff; border-radius: 12px; border: 1px solid #eeeaf5; line-height: 1.8;
   }
   .note strong { color: #5a5470; }
   .note .highlight-num { color: #7c5cfc; font-weight: 700; }
+  .footer { text-align: center; font-size: 11px; color: #c0bbcd; margin-top: 28px; }
 
-  /* ── Footer ── */
-  .footer {
-    text-align: center;
-    font-size: 11px;
-    color: #c0bbcd;
-    margin-top: 28px;
-  }
-
-  /* Number input spin button tweaks */
   input[type=number]::-webkit-inner-spin-button,
   input[type=number]::-webkit-outer-spin-button { opacity: 0.5; }
 
-  /* Install banner */
+  /* ── Install banner ── */
   .install-banner {
-    display: none;
     position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
     background: linear-gradient(135deg, #7c5cfc, #5b8def);
     color: #fff; padding: 12px 16px; font-size: 13px;
     display: flex; align-items: center; justify-content: space-between;
     gap: 10px; box-shadow: 0 2px 16px rgba(124,92,252,0.3);
   }
+  .install-banner.hidden { display: none; }
   .install-banner .msg { flex: 1; min-width: 0; }
-  .install-banner button {
-    flex-shrink: 0; border: none; border-radius: 8px;
-    padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer;
-  }
+  .install-banner button { flex-shrink: 0; border: none; border-radius: 8px; padding: 7px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; }
   .install-banner .btn-install { background: #fff; color: #7c5cfc; }
-  .install-banner .btn-close  { background: rgba(255,255,255,0.2); color: #fff; margin-left: 4px; }
+  .install-banner .btn-close { background: rgba(255,255,255,0.2); color: #fff; margin-left: 4px; }
 
   /* ── Calendar ── */
-  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
-  .cal-header button { width: 34px; height: 34px; border: 1px solid #e8e4f0; border-radius: 10px; background: #fff; font-size: 16px; cursor: pointer; color: #5a5470; }
+  .cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 8px; }
+  .cal-header button {
+    width: 34px; height: 34px; border: 1px solid #e8e4f0; border-radius: 10px;
+    background: #fff; font-size: 16px; cursor: pointer; color: #5a5470; flex-shrink: 0; font-family: inherit;
+  }
   .cal-header button:hover { background: #f5f0ff; }
   .cal-header .cal-month { font-size: 16px; font-weight: 700; color: #37314b; }
   .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; text-align: center; }
   .cal-day-name { font-size: 11px; color: #b0a8c4; font-weight: 600; padding: 6px 0; }
   .cal-day-name.we { color: #f4727b; }
-  .cal-cell { border-radius: 10px; padding: 3px 1px 5px; background: #faf9fd; border: 1px solid transparent; min-height: 54px; }
-  .cal-cell.weekend { background: #f8f5fa; }
-  .cal-cell.holiday { background: #fff8f0; border-color: #f5a623; }
-  .cal-cell.other-month { opacity: 0.3; }
-  .cal-cell .day-num { font-size: 11px; color: #8e8a9e; margin-bottom: 3px; }
-  .cal-cell.weekend .day-num { color: #f4727b; }
-  .cal-cell.holiday .day-num { color: #e07b00; font-weight: 700; }
-  .cal-cell.holiday .day-num::after { content: ' 🎉'; font-size: 9px; }
-  .cal-cell input { width: 42px; padding: 3px 2px; border: 1px solid #e8e4f0; border-radius: 6px; font-size: 12px; text-align: center; background: #fff; color: #2d2a3e; outline: none; }
+
+  .cal-cell { border-radius: 10px; padding: 3px 1px 5px; background: #faf9fd; border: 1px solid transparent; min-height: 58px; }
+  .cal-cell.rest      { background: #f8f5fa; }
+  .cal-cell.statutory { background: #fff5f5; border-color: #f4727b; }
+  .cal-cell.makeup    { background: #eef4ff; border-color: #5b8def; }
+  .cal-cell.other-month { opacity: 0.25; }
+  .cal-cell .day-num { font-size: 11px; color: #8e8a9e; margin-bottom: 2px; line-height: 1.3; }
+  .cal-cell.rest .day-num      { color: #f4727b; }
+  .cal-cell.statutory .day-num { color: #e0314f; font-weight: 700; }
+  .cal-cell.makeup .day-num    { color: #2f6fd0; font-weight: 700; }
+  .cal-cell .hol-name { font-size: 9px; display: block; }
+  .cal-cell input {
+    width: 42px; padding: 3px 2px; border: 1px solid #e8e4f0; border-radius: 6px;
+    font-size: 12px; text-align: center; background: #fff; color: #2d2a3e; outline: none; font-family: inherit;
+  }
   .cal-cell input:focus { border-color: #7c5cfc; box-shadow: 0 0 0 2px rgba(124,92,252,0.08); }
   .cal-cell .tag { font-size: 9px; padding: 0 4px; border-radius: 4px; display: inline-block; margin-top: 2px; }
   .cal-cell .tag.ot15 { background: #fff0e0; color: #e07b00; }
   .cal-cell .tag.ot2  { background: #ffe0e0; color: #d04040; }
-  .cal-cell .tag.ot3  { background: #ffe8d0; color: #c05000; }
-  .cal-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0ecf8; }
+  .cal-cell .tag.ot3  { background: #ffd0d0; color: #b02020; }
+
+  .cal-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; font-size: 11px; color: #8e8a9e; }
+  .cal-legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .cal-legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; border: 1px solid transparent; }
+  .lg-work { background: #faf9fd; border-color: #e8e4f0 !important; }
+  .lg-rest { background: #f8f5fa; border-color: #ddd5e5 !important; }
+  .lg-stat { background: #fff5f5; border-color: #f4727b !important; }
+  .lg-make { background: #eef4ff; border-color: #5b8def !important; }
+
+  .cal-summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0ecf8; }
   .cal-summary .sum-item { text-align: center; }
-  .cal-summary .sum-val { font-size: 20px; font-weight: 700; }
+  .cal-summary .sum-val { font-size: 18px; font-weight: 700; }
   .cal-summary .sum-label { font-size: 10px; color: #b0a8c4; margin-top: 2px; }
-  .cal-summary .sum-val.normal  { color: #5b8def; }
-  .cal-summary .sum-val.ot15    { color: #f5a623; }
-  .cal-summary .sum-val.ot2     { color: #f4727b; }
-  .cal-summary .sum-val.ot3     { color: #e0314f; }
-  .btn-apply { display: block; width: 100%; margin-top: 8px; padding: 10px; border: none; border-radius: 12px; background: linear-gradient(135deg, #7c5cfc, #5b8def); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .cal-summary .sum-val.req    { color: #8e8a9e; }
+  .cal-summary .sum-val.normal { color: #5b8def; }
+  .cal-summary .sum-val.ot15   { color: #f5a623; }
+  .cal-summary .sum-val.ot2    { color: #f4727b; }
+  .cal-summary .sum-val.ot3    { color: #e0314f; }
+
+  .btn-apply {
+    display: block; width: 100%; margin-top: 10px; padding: 10px; border: none;
+    border-radius: 12px; background: linear-gradient(135deg, #7c5cfc, #5b8def);
+    color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit;
+  }
   .btn-apply:hover { opacity: 0.9; }
-  .btn-batch { flex:1; padding:6px 4px; border:1px solid #e8e4f0; border-radius:8px; background:#fff; font-size:11px; color:#5a5470; cursor:pointer; }
-  .btn-batch:hover { background:#f5f0ff; }
+  .btn-batch { flex: 1; padding: 6px 4px; border: 1px solid #e8e4f0; border-radius: 8px; background: #fff; font-size: 11px; color: #5a5470; cursor: pointer; font-family: inherit; }
+  .btn-batch:hover { background: #f5f0ff; }
+
+  .year-pick { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #5a5470; }
+  .year-pick select { padding: 6px 10px; border: 1.5px solid #e8e4f0; border-radius: 10px; background: #faf9fd; font-size: 13px; font-family: inherit; color: #2d2a3e; outline: none; }
+  .filled-hint { font-size: 11px; color: #b0a8c4; }
+  .warn-box { margin-top: 10px; padding: 10px 12px; background: #fff8f0; border: 1px solid #f5d5a0; border-radius: 10px; font-size: 11.5px; color: #a06000; }
+  .warn-box.hidden { display: none; }
+
+  /* ── Monthly table ── */
+  .month-table-wrap { overflow-x: auto; margin-top: 4px; -webkit-overflow-scrolling: touch; }
+  .month-table { width: 100%; min-width: 620px; border-collapse: collapse; font-size: 12px; }
+  .month-table th, .month-table td { padding: 7px 8px; text-align: right; white-space: nowrap; }
+  .month-table thead th { color: #b0a8c4; font-weight: 600; font-size: 11px; border-bottom: 1.5px solid #f0ecf8; text-align: right; }
+  .month-table thead th:first-child, .month-table tbody td:first-child { text-align: left; }
+  .month-table tbody tr { border-bottom: 1px solid #f7f4fb; }
+  .month-table tbody tr.current { background: rgba(124,92,252,0.06); font-weight: 700; }
+  .month-table tbody tr.filled td:first-child::after { content: ' ●'; color: #10b76f; font-size: 8px; vertical-align: middle; }
+  .month-table tfoot td, .month-table tfoot th { padding-top: 10px; border-top: 2px solid #e8e4f0; font-weight: 700; font-size: 12.5px; }
+  .month-table .col-tax { color: #f4727b; }
+  .month-table .col-net { color: #10b76f; }
+  .month-table input {
+    width: 68px; padding: 3px 6px; border: 1px solid #e8e4f0; border-radius: 6px;
+    font-size: 11.5px; text-align: right; background: #fff; color: #2d2a3e; outline: none; font-family: inherit;
+  }
+  .month-table input:focus { border-color: #7c5cfc; box-shadow: 0 0 0 2px rgba(124,92,252,0.08); }
+  .table-hint { font-size: 11px; color: #b0a8c4; margin-top: 8px; line-height: 1.7; }
+
+  .crit-warn { margin-top: 10px; padding: 10px 12px; background: #fff5f5; border: 1px solid #f4bcbc; border-radius: 10px; font-size: 11.5px; color: #c02020; }
+  .crit-warn.hidden { display: none; }
+
   @media (max-width: 500px) {
-    .cal-cell { min-height: 48px; padding: 2px 1px 4px; }
+    .cal-cell { min-height: 52px; padding: 2px 1px 4px; }
     .cal-cell input { width: 34px; font-size: 11px; padding: 2px 1px; }
-    .cal-summary { grid-template-columns: repeat(2, 1fr); }
-    .cal-summary .sum-val { font-size: 16px; }
+    .cal-summary { grid-template-columns: repeat(3, 1fr); }
+    .cal-summary .sum-val { font-size: 15px; }
+    .app { padding: 20px 12px 50px; }
   }
 </style>
 </head>
 <body>
 
 <!-- Install Banner -->
-<div class="install-banner" id="installBanner" style="display:none;">
+<div class="install-banner hidden" id="installBanner">
   <span class="msg">📱 <strong>安装到桌面</strong> · 像 App 一样使用</span>
   <button class="btn-install" id="btnInstall" onclick="installApp()">立即安装</button>
   <button class="btn-close" onclick="dismissBanner()">✕</button>
@@ -380,157 +260,209 @@
 
 <div class="app">
 
-  <!-- ── Header ── -->
   <div class="header">
     <div class="logo">🧮</div>
-    <h1>wuji薪资计算器</h1>
+    <h1>深圳薪资计算器</h1>
     <p class="subtitle">
       <span class="tag">深圳一档社保</span>
-      <span class="tag">公积金5%</span>
-      <span class="tag">自动算个税</span>
+      <span class="tag">累计预扣个税</span>
+      <span class="tag">调休已校准</span>
     </p>
   </div>
 
-  <!-- ── Calendar ── -->
-  <div class="card" id="calendarCard">
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab('calendar', this)">📅 日历填工时</button>
+    <button class="tab-btn" onclick="switchTab('salary', this)">💰 薪资计算</button>
+  </div>
+
+  <!-- ══ Tab: Calendar ══ -->
+  <div class="tab-panel active" id="tab-calendar">
+  <div class="card">
     <div class="card-title">
       <span class="icon icon-result">📅</span>日历填工时
+      <span class="filled-hint" style="margin-left:auto;" id="filledHint">已填 0/12 个月</span>
     </div>
+
     <div class="cal-header">
       <button onclick="changeMonth(-1)">◀</button>
-      <span class="cal-month" id="calMonthTitle">2025年7月</span>
+      <span class="cal-month" id="calMonthTitle">—</span>
       <button onclick="changeMonth(1)">▶</button>
     </div>
-    <div class="cal-grid" id="calDayNames">
+
+    <div class="cal-grid">
       <div class="cal-day-name">一</div><div class="cal-day-name">二</div><div class="cal-day-name">三</div>
       <div class="cal-day-name">四</div><div class="cal-day-name">五</div>
       <div class="cal-day-name we">六</div><div class="cal-day-name we">日</div>
     </div>
     <div class="cal-grid" id="calendarGrid"></div>
-    <div class="cal-summary">
-      <div class="sum-item"><div class="sum-val normal" id="sumNormal">0h</div><div class="sum-label">正常工时</div></div>
-      <div class="sum-item"><div class="sum-val ot15" id="sumOT15">0h</div><div class="sum-label">工作日OT (1.5x)</div></div>
-      <div class="sum-item"><div class="sum-val ot2" id="sumOT2">0h</div><div class="sum-label">休息日OT (2x)</div></div>
-      <div class="sum-item"><div class="sum-val ot3" id="sumOT3">0h</div><div class="sum-label">节假日OT (3x)</div></div>
-    </div>
-    <div style="display:flex;gap:6px;margin-top:10px;">
-      <button class="btn-batch" onclick="batchFill('workday')">📋 工作日→8h</button>
-      <button class="btn-batch" onclick="batchFill('all')">📋 全月→8h</button>
-      <button class="btn-batch" onclick="batchFill('clear')">🗑 清空</button>
-    </div>
-    <button class="btn-apply" onclick="applyCalendarToSalary()">📥 套用到薪资计算</button>
-  </div>
 
-  <!-- ── Salary Input ── -->
+    <div class="cal-legend">
+      <span><i class="lg-work"></i>工作日 8h 内正常</span>
+      <span><i class="lg-rest"></i>休息日 全额 2 倍</span>
+      <span><i class="lg-stat"></i>法定节假日 全额 3 倍</span>
+      <span><i class="lg-make"></i>调休补班 按正常工作日</span>
+    </div>
+
+    <div class="warn-box hidden" id="calWarn"></div>
+
+    <div class="cal-summary">
+      <div class="sum-item"><div class="sum-val req"    id="sumRequired">0h</div><div class="sum-label">应出勤</div></div>
+      <div class="sum-item"><div class="sum-val normal" id="sumNormal">0h</div><div class="sum-label">正常工时</div></div>
+      <div class="sum-item"><div class="sum-val ot15"   id="sumOT15">0h</div><div class="sum-label">工作日OT 1.5x</div></div>
+      <div class="sum-item"><div class="sum-val ot2"    id="sumOT2">0h</div><div class="sum-label">休息日OT 2x</div></div>
+      <div class="sum-item"><div class="sum-val ot3"    id="sumOT3">0h</div><div class="sum-label">法定假OT 3x</div></div>
+    </div>
+
+    <div style="display:flex;gap:6px;margin-top:12px;">
+      <button class="btn-batch" onclick="batchFill('default')">📋 按默认填充</button>
+      <button class="btn-batch" onclick="batchFill('clear')">🗑 重置本月</button>
+      <button class="btn-batch" onclick="clearYear()">🧹 重置全年</button>
+    </div>
+    <button class="btn-apply" onclick="switchTab('salary')">💰 查看薪资计算</button>
+  </div>
+  </div><!-- /tab-calendar -->
+
+  <!-- ══ Tab: Salary ══ -->
+  <div class="tab-panel" id="tab-salary">
+
+  <!-- 工资组成 -->
   <div class="card">
     <div class="card-title">
       <span class="icon icon-salary">💼</span>工资组成
+      <span class="year-pick" style="margin-left:auto;">
+        <span>计税年度</span>
+        <select id="taxYear" onchange="onYearChange()"></select>
+      </span>
     </div>
     <div class="form-row">
       <div class="form-group">
         <label>📌 底薪（元/月）</label>
         <input type="number" id="baseSalary" placeholder="输入底薪" step="0.01" min="0" oninput="calc()">
+        <div class="unit">满勤全额，缺勤按 底薪÷21.75÷8 扣</div>
       </div>
       <div class="form-group">
-        <label>🏆 绩效奖金</label>
+        <label>🏆 绩效奖金（默认每月）</label>
         <input type="number" id="bonus" placeholder="输入奖金" step="0.01" min="0" oninput="calc()">
+        <div class="unit">可在下方逐月明细中单独覆盖</div>
       </div>
       <div class="form-group">
-        <label>🍱 补贴</label>
+        <label>🍱 补贴（默认每月）</label>
         <input type="number" id="subsidy" placeholder="餐补/交通等" step="0.01" min="0" oninput="calc()">
+        <div class="unit">可在下方逐月明细中单独覆盖</div>
       </div>
       <div class="form-group">
         <label>🧧 年终奖</label>
         <input type="number" id="yearEndBonus" placeholder="年度一次性" step="0.01" min="0" oninput="calc()">
-        <div class="unit">单独计税，计入年薪</div>
+        <div class="unit">单独计税，不并入累计预扣</div>
       </div>
     </div>
+    <div class="crit-warn hidden" id="yebWarn"></div>
+  </div>
 
-    <!-- Overtime -->
-    <div class="ot-section">
-      <div class="section-label">⏱ 加班时长（可同时填写多种）</div>
+  <!-- 社保公积金 -->
+  <div class="card">
+    <div class="card-title" onclick="toggleBox('siBody','siIcon')" style="cursor:pointer;">
+      <span class="icon icon-gear">⚙️</span>社保 · 公积金
+      <span style="font-size:11px;color:#b0a8c4;font-weight:400;margin-left:4px;">（默认按最低基数）</span>
+      <span style="margin-left:auto;font-size:12px;color:#b0a8c4;" id="siIcon">▼</span>
+    </div>
+    <div id="siBody" style="display:none;">
       <div class="form-row">
         <div class="form-group">
-          <label>🌙 工作日加班</label>
-          <input type="number" id="otWeekday" placeholder="小时" step="0.5" min="0" oninput="calc()">
-          <div class="unit">1.5 倍工资</div>
+          <label>社保缴费基数</label>
+          <input type="number" id="siBase" placeholder="留空=按最低基数" step="0.01" min="0" oninput="calc()">
+          <div class="unit">各险种分别在自己的上下限内取值</div>
         </div>
         <div class="form-group">
-          <label>📅 休息日加班</label>
-          <input type="number" id="otWeekend" placeholder="小时" step="0.5" min="0" oninput="calc()">
-          <div class="unit">2 倍工资</div>
+          <label>公积金缴费基数</label>
+          <input type="number" id="hfBase" placeholder="留空=按最低 2,520" step="0.01" min="0" oninput="calc()">
+          <div class="unit">下限 2,520（深圳最低工资）· 上限 48,471</div>
         </div>
         <div class="form-group">
-          <label>🎉 法定节假日加班</label>
-          <input type="number" id="otHoliday" placeholder="小时" step="0.5" min="0" oninput="calc()">
-          <div class="unit">3 倍工资</div>
+          <label>公积金个人比例</label>
+          <select id="hfRate" onchange="calc()">
+            <option value="0.05">5%</option>
+            <option value="0.06">6%</option>
+            <option value="0.07">7%</option>
+            <option value="0.08">8%</option>
+            <option value="0.09">9%</option>
+            <option value="0.10">10%</option>
+            <option value="0.11">11%</option>
+            <option value="0.12">12%</option>
+          </select>
         </div>
       </div>
-      <div class="ot-result" id="otResult"></div>
+      <div id="siDetail" style="font-size:11px;color:#b0a8c4;line-height:1.8;"></div>
     </div>
   </div>
 
-  <!-- ── Special Deductions ── -->
+  <!-- 专项附加扣除 -->
   <div class="card">
-    <div class="card-title" onclick="toggleDeductions()" style="cursor:pointer;">
+    <div class="card-title" onclick="toggleBox('deductionsBody','dedToggleIcon')" style="cursor:pointer;">
       <span class="icon icon-deduct">📝</span>专项附加扣除
       <span style="font-size:11px;color:#b0a8c4;font-weight:400;margin-left:4px;">（选填）</span>
       <span style="margin-left:auto;font-size:12px;color:#b0a8c4;" id="dedToggleIcon">▼</span>
     </div>
     <div id="deductionsBody" style="display:none;">
-    <div class="form-row">
-      <div class="form-group">
-        <label>👶 子女教育</label>
-        <input type="number" id="dedChildEdu" placeholder="0个" step="1" min="0" max="20" oninput="calc()">
-        <div class="unit">每个 2,000 元/月</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>👶 子女教育</label>
+          <input type="number" id="dedChildEdu" placeholder="0个" step="1" min="0" max="20" oninput="calc()">
+          <div class="unit">每个 2,000 元/月</div>
+        </div>
+        <div class="form-group">
+          <label>🍼 3岁以下婴幼儿照护</label>
+          <input type="number" id="dedInfant" placeholder="0个" step="1" min="0" max="20" oninput="calc()">
+          <div class="unit">每个 2,000 元/月</div>
+        </div>
+        <div class="form-group">
+          <label>📚 继续教育</label>
+          <select id="dedContEdu" onchange="calc()">
+            <option value="0">无</option>
+            <option value="400">学历教育 400元/月</option>
+            <option value="300">职业资格 3,600元/年</option>
+          </select>
+        </div>
       </div>
-      <div class="form-group">
-        <label>🍼 婴幼儿照护</label>
-        <input type="number" id="dedInfant" placeholder="0个" step="1" min="0" max="20" oninput="calc()">
-        <div class="unit">每个 2,000 元/月</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>🏠 住房支出（二选一）</label>
+          <select id="dedHousing" onchange="calc()">
+            <option value="0">无</option>
+            <option value="1000">住房贷款利息 1,000元/月</option>
+            <option value="1500">住房租金 · 深圳 1,500元/月</option>
+            <option value="1100">住房租金 · 人口&gt;100万市 1,100</option>
+            <option value="800">住房租金 · 人口≤100万市 800</option>
+          </select>
+          <div class="unit">同一年度内房贷利息与租金不得同时享受</div>
+        </div>
+        <div class="form-group">
+          <label>👴 赡养老人</label>
+          <select id="dedElderly" onchange="calc()">
+            <option value="0">无</option>
+            <option value="3000">独生子女 3,000元/月</option>
+            <option value="1500">非独生子女 1,500元/月</option>
+          </select>
+          <div class="unit">非独生每人分摊不超过 1,500</div>
+        </div>
+        <div class="form-group">
+          <label>🏥 大病医疗</label>
+          <input type="text" value="汇算清缴时扣除" disabled
+                 style="background:#f5f3f9;color:#b0a8c4;cursor:not-allowed;">
+          <div class="unit">按规定不在预扣预缴环节扣除</div>
+        </div>
       </div>
-      <div class="form-group">
-        <label>📚 继续教育</label>
-        <select id="dedContEdu" onchange="calc()">
-          <option value="0">无</option>
-          <option value="400">学历教育 400元/月</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>🏠 住房贷款利息</label>
-        <select id="dedMortgage" onchange="calc()">
-          <option value="0">无</option>
-          <option value="1000">首套房 1,000元/月</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>🏢 住房租金</label>
-        <select id="dedRent" onchange="calc()">
-          <option value="0">无</option>
-          <option value="1500">深圳 · 1,500元/月</option>
-          <option value="1100">其他城市(>100万) 1,100</option>
-          <option value="800">其他城市(≤100万) 800</option>
-        </select>
-      </div>
-      <div class="form-group">
-        <label>👴 赡养老人</label>
-        <select id="dedElderly" onchange="calc()">
-          <option value="0">无</option>
-          <option value="3000">独生子女 3,000元/月</option>
-          <option value="1500">非独生子女 1,500元/月</option>
-        </select>
-      </div>
-    </div>
-    <div style="font-size:11px;color:#c0bbcd;">※ 住房贷款利息与住房租金二选一，同时填写则优先取租金</div>
     </div>
   </div>
 
-  <!-- ── Results ── -->
-  <div class="card" id="resultCard">
+  <!-- 计算结果 -->
+  <div class="card">
     <div class="card-title">
       <span class="icon icon-result">✨</span>计算结果
+      <span class="year-pick" style="margin-left:auto;">
+        <span>月份</span>
+        <select id="taxMonth" onchange="calc()"></select>
+      </span>
     </div>
 
     <div class="result-grid">
@@ -538,13 +470,13 @@
         <div class="label">📊 税前月薪</div>
         <div class="value" id="preTaxSalary">¥0</div>
         <div class="badge">应发工资</div>
-        <div class="annual" id="preTaxAnnual">年薪（含年终奖）¥0</div>
+        <div class="annual" id="preTaxAnnual">年度合计 ¥0</div>
       </div>
       <div class="result-item after-tax">
         <div class="label">💎 税后月薪（到手）</div>
         <div class="value" id="afterTaxSalary">¥0</div>
         <div class="badge">实发工资</div>
-        <div class="annual" id="afterTaxAnnual">年薪（含年终奖）¥0</div>
+        <div class="annual" id="afterTaxAnnual">年度合计 ¥0</div>
       </div>
     </div>
 
@@ -552,438 +484,852 @@
 
     <div class="breakdown">
       <table>
-        <tr class="section-header"><th>📥 收入明细</th><td></td></tr>
-        <tr><th>底薪</th><td id="rowBase">¥0.00</td></tr>
+        <tr class="section-header"><th>📥 当月收入明细</th><td></td></tr>
+        <tr><th>底薪 <span class="sub" id="attendNote"></span></th><td id="rowBase">¥0.00</td></tr>
         <tr><th>绩效奖金</th><td id="rowBonus">¥0.00</td></tr>
         <tr><th>补贴</th><td id="rowSubsidy">¥0.00</td></tr>
-        <tr class="sep"><th>加班费合计</th><td id="rowOT">¥0.00</td></tr>
-        <tr><th>年终奖（年度一次性）</th><td id="rowYEB">¥0.00</td></tr>
+        <tr class="sep"><th>加班费合计 <span class="sub" id="otNote"></span></th><td id="rowOT">¥0.00</td></tr>
         <tr class="highlight"><th>税前月薪合计</th><td id="rowGross" style="color:#5b3de8;">¥0.00</td></tr>
 
-        <tr class="section-header"><th>📤 扣款明细</th><td></td></tr>
-        <tr class="deduct-row"><th>社保 · 深圳一档（最低基数）</th><td id="rowSocialIns">-¥521.58</td></tr>
-        <tr class="deduct-row"><th>公积金 · 5% (基数3000)</th><td id="rowHousingFund">-¥0.00</td></tr>
-        <tr class="deduct-row sep"><th>个人所得税（月度）</th><td id="rowTax">-¥0.00</td></tr>
-        <tr class="deduct-row"><th>年终奖个税（单独计税）</th><td id="rowYEBTax">-¥0.00</td></tr>
-        <tr class="total"><th>月度 + 年终扣款合计</th><td id="rowTotalDeduct">-¥0.00</td></tr>
+        <tr class="section-header"><th>📤 当月扣款明细</th><td></td></tr>
+        <tr class="deduct-row"><th>社保 · 深圳一档 <span class="sub" id="siNote"></span></th><td id="rowSocialIns">-¥0.00</td></tr>
+        <tr class="deduct-row"><th>住房公积金 <span class="sub" id="hfNote"></span></th><td id="rowHousingFund">-¥0.00</td></tr>
+        <tr class="deduct-row sep"><th>个人所得税 <span class="sub">（累计预扣预缴）</span></th><td id="rowTax">-¥0.00</td></tr>
+        <tr class="total"><th>当月扣款合计</th><td id="rowTotalDeduct">-¥0.00</td></tr>
       </table>
     </div>
 
     <div class="ratio-bar-wrap">
-      <span>总扣除占比</span>
+      <span>当月扣除占比</span>
       <div class="ratio-bar"><div class="fill" id="ratioFill" style="width:0%"></div></div>
       <strong id="deductRatio">0%</strong>
     </div>
   </div>
 
-  <!-- ── Notes ── -->
+  <!-- 逐月明细 -->
+  <div class="card">
+    <div class="card-title">
+      <span class="icon icon-salary">📆</span>全年逐月明细
+      <span style="font-size:11px;color:#b0a8c4;font-weight:400;margin-left:auto;">奖金/补贴可逐月改</span>
+    </div>
+    <div class="month-table-wrap">
+      <table class="month-table">
+        <thead>
+          <tr>
+            <th>月份</th><th>出勤</th><th>加班费</th><th>奖金</th><th>补贴</th>
+            <th>税前</th><th>累计应税</th><th>本月税</th><th>实发</th>
+          </tr>
+        </thead>
+        <tbody id="monthTableBody"></tbody>
+        <tfoot>
+          <tr>
+            <td>合计</td><td id="ftAttend">—</td><td id="ftOT">¥0</td>
+            <td id="ftBonus">¥0</td><td id="ftSub">¥0</td><td id="ftGross">¥0</td>
+            <td>—</td><td class="col-tax" id="ftTax">¥0</td><td class="col-net" id="ftNet">¥0</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <div class="table-hint">
+      ● 标记表示该月日历已填过工时；未填的月份按当月应出勤满勤、无加班估算。<br>
+      累计预扣下同样的税前月薪，1 月税最少、越到年底税越多，这是正常现象而非计算错误。
+    </div>
+  </div>
+
+  <!-- 年终奖 -->
+  <div class="card" id="yebCard">
+    <div class="card-title"><span class="icon icon-deduct">🧧</span>年终奖（单独计税）</div>
+    <div class="breakdown">
+      <table>
+        <tr><th>年终奖金额</th><td id="rowYEB">¥0.00</td></tr>
+        <tr><th>÷12 查表数 <span class="sub">用于确定税率</span></th><td id="rowYEBDiv">¥0.00</td></tr>
+        <tr><th>适用税率 / 速算扣除数</th><td id="rowYEBRate">—</td></tr>
+        <tr class="deduct-row sep"><th>年终奖个税</th><td id="rowYEBTax">-¥0.00</td></tr>
+        <tr class="total"><th>年终奖到手</th><td id="rowYEBNet" style="color:#10b76f;">¥0.00</td></tr>
+      </table>
+    </div>
+  </div>
+
   <div class="note">
     <p><strong>📋 计算规则说明</strong></p>
-    <p>• 社保：深圳一档最低基数缴纳，固定 <span class="highlight-num">521.58元/月</span></p>
-    <p>• 加班费 = 底薪 ÷ <span class="highlight-num">21.75</span> ÷ 8 × 时数 × 倍数</p>
-    <p>• 个税起征点：<span class="highlight-num">5,000元/月</span>，采用七级超额累进税率预扣预缴</p>
-    <p>• 公积金：<span class="highlight-num">5%</span> × 固定基数 <span class="highlight-num">3,000元</span> = <span class="highlight-num">150元/月</span></p>
-    <p>• 年终奖：单独计税，÷12 找对应月度税率，不与月薪合并计税</p>
+    <p>• <strong>个税</strong>：累计预扣预缴法。累计应纳税所得额 = 累计收入 − <span class="highlight-num">5,000×月份数</span> − 累计社保公积金 − 累计专项附加扣除；本月税 = 累计应纳税额 − 已预扣累计额，结果为负时按 0 计，多缴部分次年汇算清缴退还</p>
+    <p>• <strong>社保</strong>：养老 8%（基数 4,775~27,549）· 医疗一档 2%（6,727~33,633）· 失业 0.2%（2,520~44,265）；工伤、生育、大病保险个人不缴。最低基数合计 <span class="highlight-num">521.58 元/月</span></p>
+    <p>• <strong>公积金</strong>：基数下限 <span class="highlight-num">2,520</span>（深圳最低工资）· 上限 48,471，个人比例 5%~12% 可选</p>
+    <p>• <strong>加班费</strong> = 底薪 ÷ <span class="highlight-num">21.75</span> ÷ 8 × 时数 × 倍数；工作日超 8h 部分 1.5 倍、休息日 2 倍、法定节假日 3 倍</p>
+    <p>• <strong>调休</strong>：法定节假日（3 倍）、调休放假日（2 倍）、调休补班日（按正常工作日、无加班费）三者已分别标注</p>
+    <p>• <strong>年终奖</strong>：÷12 查按月换算税率表定税率，再按 <span class="highlight-num">全额×税率−速算扣除数</span> 计税，不并入累计预扣</p>
   </div>
 
   <div class="footer">深圳薪资计算器 · 仅供参考，实际以工资条为准</div>
+  </div><!-- /tab-salary -->
 </div>
 
 <script>
-// ── 深圳市2025年社保参数 ──
-var BASE_CAPS = {
-  pension:      { min: 4492,  max: 27501 },
-  medical:      { min: 6733,  max: 33666 },
-  unemployment: { min: 2520,  max: 44265 },
-};
+// ══════════════ PURE-LOGIC START ══════════════
+// 此标记之间的代码不依赖 DOM / localStorage，由 test.js 直接提取运行。
+// 改动时请保持这一性质，否则 npm test 会失败。
 
-var RATES = {
-  pension:      0.08,
-  medical:      0.02,
-  unemployment: 0.002,
-  housingFund:  0.05,
-};
+// ═══════════════════════════════════════════════════════════
+//  参数区（截至 2026-08 现行口径）
+// ═══════════════════════════════════════════════════════════
 
-var TAX_BRACKETS = [
-  { limit: 3000,   rate: 0.03, qd: 0     },
-  { limit: 12000,  rate: 0.10, qd: 210   },
-  { limit: 25000,  rate: 0.20, qd: 1410  },
-  { limit: 35000,  rate: 0.25, qd: 2660  },
-  { limit: 55000,  rate: 0.30, qd: 4410  },
-  { limit: 80000,  rate: 0.35, qd: 7160  },
-  { limit: 1e9,    rate: 0.45, qd: 15160 },
+// 深圳社保个人缴费：费率与基数上下限
+// 工伤、生育、大病保险个人不缴费，故不列入
+var SOCIAL_INS = [
+  { key: 'pension',      name: '养老',     rate: 0.08,  min: 4775, max: 27549 },
+  { key: 'medical',      name: '医疗一档', rate: 0.02,  min: 6727, max: 33633 },
+  { key: 'unemployment', name: '失业',     rate: 0.002, min: 2520, max: 44265 },
 ];
 
-var HOUSING_FUND_BASE = 3000;
+var HF = { min: 2520, max: 48471, defaultRate: 0.05 };
 
-// ── Calendar State ──
-var calYear, calMonth;
+// 预扣率表一：居民个人工资薪金累计预扣预缴适用（年度口径）
+var TAX_ANNUAL = [
+  { upTo: 36000,    rate: 0.03, qd: 0      },
+  { upTo: 144000,   rate: 0.10, qd: 2520   },
+  { upTo: 300000,   rate: 0.20, qd: 16920  },
+  { upTo: 420000,   rate: 0.25, qd: 31920  },
+  { upTo: 660000,   rate: 0.30, qd: 52920  },
+  { upTo: 960000,   rate: 0.35, qd: 85920  },
+  { upTo: Infinity, rate: 0.45, qd: 181920 },
+];
 
-// 中国法定节假日 (2025-2026)
-var CHINESE_HOLIDAYS = {
-  // 2025
-  '2025-01-01': '元旦', '2025-01-28': '除夕', '2025-01-29': '春节', '2025-01-30': '春节',
-  '2025-01-31': '春节', '2025-02-01': '春节', '2025-02-02': '春节', '2025-02-03': '春节',
-  '2025-04-04': '清明', '2025-05-01': '劳动节', '2025-05-02': '劳动节',
-  '2025-05-31': '端午', '2025-10-01': '国庆', '2025-10-02': '国庆', '2025-10-03': '国庆',
-  '2025-10-06': '中秋', '2025-10-07': '国庆', '2025-10-08': '国庆',
-  // 2026
-  '2026-01-01': '元旦', '2026-02-16': '除夕', '2026-02-17': '春节', '2026-02-18': '春节',
-  '2026-02-19': '春节', '2026-02-20': '春节', '2026-02-21': '春节', '2026-02-22': '春节',
-  '2026-02-23': '春节', '2026-04-05': '清明', '2026-05-01': '劳动节',
-  '2026-06-19': '端午', '2026-09-25': '中秋', '2026-10-01': '国庆', '2026-10-02': '国庆',
-  '2026-10-05': '国庆', '2026-10-06': '国庆', '2026-10-07': '国庆',
+// 按月换算后的综合所得税率表：仅用于全年一次性奖金单独计税
+var TAX_MONTHLY = [
+  { upTo: 3000,     rate: 0.03, qd: 0     },
+  { upTo: 12000,    rate: 0.10, qd: 210   },
+  { upTo: 25000,    rate: 0.20, qd: 1410  },
+  { upTo: 35000,    rate: 0.25, qd: 2660  },
+  { upTo: 55000,    rate: 0.30, qd: 4410  },
+  { upTo: 80000,    rate: 0.35, qd: 7160  },
+  { upTo: Infinity, rate: 0.45, qd: 15160 },
+];
+
+var BASIC_DEDUCTION = 5000;   // 每月减除费用
+var MONTH_HOURS = 21.75 * 8;  // 月计薪工时
+
+// 年终奖临界点（÷12 后的档位临界，乘回 12 即为奖金临界额）
+var YEB_CRITICAL = [36000, 144000, 300000, 420000, 660000, 960000];
+
+// ── 节假日表 ──
+// 1 = 法定节假日（加班 3 倍，不得以补休替代）
+// 2 = 调休放假日（视同休息日，加班 2 倍）
+// 0 = 调休补班日（虽逢周末但为正常工作日，无加班费）
+// 依据：国务院令第795号（2025-01-01 施行，全体公民放假节日 11→13 天）
+//       国办发明电〔2024〕12号（2025年安排）、国办发明电〔2025〕7号（2026年安排）
+var HOLIDAYS = {
+  // ═══ 2025 ═══
+  '2025-01-01': [1, '元旦'],
+  '2025-01-26': [0, '补班'],
+  '2025-01-28': [1, '除夕'], '2025-01-29': [1, '初一'], '2025-01-30': [1, '初二'], '2025-01-31': [1, '初三'],
+  '2025-02-01': [2, '初四'], '2025-02-02': [2, '初五'], '2025-02-03': [2, '初六'], '2025-02-04': [2, '初七'],
+  '2025-02-08': [0, '补班'],
+  '2025-04-04': [1, '清明'], '2025-04-05': [2, '清明假'], '2025-04-06': [2, '清明假'],
+  '2025-04-27': [0, '补班'],
+  '2025-05-01': [1, '劳动节'], '2025-05-02': [1, '劳动节'],
+  '2025-05-03': [2, '劳动假'], '2025-05-04': [2, '劳动假'], '2025-05-05': [2, '劳动假'],
+  '2025-05-31': [1, '端午'], '2025-06-01': [2, '端午假'], '2025-06-02': [2, '端午假'],
+  '2025-09-28': [0, '补班'],
+  '2025-10-01': [1, '国庆'], '2025-10-02': [1, '国庆'], '2025-10-03': [1, '国庆'],
+  '2025-10-04': [2, '国庆假'], '2025-10-05': [2, '国庆假'],
+  '2025-10-06': [1, '中秋'],
+  '2025-10-07': [2, '国庆假'], '2025-10-08': [2, '国庆假'],
+  '2025-10-11': [0, '补班'],
+
+  // ═══ 2026 ═══
+  '2026-01-01': [1, '元旦'], '2026-01-02': [2, '元旦假'], '2026-01-03': [2, '元旦假'],
+  '2026-01-04': [0, '补班'],
+  '2026-02-14': [0, '补班'],
+  '2026-02-15': [2, '春节假'],
+  '2026-02-16': [1, '除夕'], '2026-02-17': [1, '初一'], '2026-02-18': [1, '初二'], '2026-02-19': [1, '初三'],
+  '2026-02-20': [2, '初四'], '2026-02-21': [2, '初五'], '2026-02-22': [2, '初六'], '2026-02-23': [2, '初七'],
+  '2026-02-28': [0, '补班'],
+  '2026-04-04': [2, '清明假'], '2026-04-05': [1, '清明'], '2026-04-06': [2, '清明假'],
+  '2026-05-01': [1, '劳动节'], '2026-05-02': [1, '劳动节'],
+  '2026-05-03': [2, '劳动假'], '2026-05-04': [2, '劳动假'], '2026-05-05': [2, '劳动假'],
+  '2026-05-09': [0, '补班'],
+  '2026-06-19': [1, '端午'], '2026-06-20': [2, '端午假'], '2026-06-21': [2, '端午假'],
+  '2026-09-20': [0, '补班'],
+  '2026-09-25': [1, '中秋'], '2026-09-26': [2, '中秋假'], '2026-09-27': [2, '中秋假'],
+  '2026-10-01': [1, '国庆'], '2026-10-02': [1, '国庆'], '2026-10-03': [1, '国庆'],
+  '2026-10-04': [2, '国庆假'], '2026-10-05': [2, '国庆假'], '2026-10-06': [2, '国庆假'], '2026-10-07': [2, '国庆假'],
+  '2026-10-10': [0, '补班'],
 };
 
-function isHoliday(y, m, d) {
-  var key = y + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0');
-  return CHINESE_HOLIDAYS.hasOwnProperty(key);
-}
+var HOLIDAY_YEARS = [2025, 2026];
 
-function getHolidayName(y, m, d) {
-  var key = y + '-' + String(m).padStart(2,'0') + '-' + String(d).padStart(2,'0');
-  return CHINESE_HOLIDAYS[key] || '';
-}
+// ═══════════════════════════════════════════════════════════
+//  工具函数
+// ═══════════════════════════════════════════════════════════
 
-// ── localStorage persistence ──
-function getCalStorageKey(y, m) {
-  return 'cal-hours-' + y + '-' + String(m).padStart(2,'0');
-}
-
-function saveCalData(y, m, d, hours) {
-  var key = getCalStorageKey(y, m);
-  var data = {};
-  try { data = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) {}
-  data[d] = hours;
-  localStorage.setItem(key, JSON.stringify(data));
-}
-
-function loadCalData(y, m, d) {
-  var key = getCalStorageKey(y, m);
-  try {
-    var data = JSON.parse(localStorage.getItem(key) || '{}');
-    if (data.hasOwnProperty(d)) return data[d];
-  } catch(e) {}
-  return null;
-}
-
-function saveAllCalData() {
-  var key = getCalStorageKey(calYear, calMonth);
-  var data = {};
-  var firstDay = new Date(calYear, calMonth - 1, 1);
-  var lastDay = new Date(calYear, calMonth, 0);
-  for (var d = 1; d <= lastDay.getDate(); d++) {
-    var cell = document.getElementById('cell-' + calYear + '-' + calMonth + '-' + d);
-    if (cell) {
-      var inp = cell.querySelector('input');
-      var hrs = parseFloat(inp.value);
-      if (!isNaN(hrs)) data[d] = hrs;
-    }
-  }
-  localStorage.setItem(key, JSON.stringify(data));
-}
-
-function renderCalendar() {
-  var grid = document.getElementById('calendarGrid');
-  var title = document.getElementById('calMonthTitle');
-  title.textContent = calYear + '年' + calMonth + '月';
-
-  var firstDay = new Date(calYear, calMonth - 1, 1);
-  var lastDay = new Date(calYear, calMonth, 0);
-  var daysInMonth = lastDay.getDate();
-  // 0=Sun, 1=Mon, ... 6=Sat → we want Mon=0, Sun=6
-  var startDow = firstDay.getDay();
-  startDow = startDow === 0 ? 6 : startDow - 1; // Mon=0 ... Sun=6
-
-  var html = '';
-  // Empty cells before first day
-  for (var i = 0; i < startDow; i++) {
-    html += '<div class="cal-cell other-month"></div>';
-  }
-  // Day cells
-  for (var d = 1; d <= daysInMonth; d++) {
-    var dow = (startDow + d - 1) % 7; // 0=Mon ... 6=Sun
-    var isWe = dow >= 5; // Sat=5, Sun=6
-    var isHol = isHoliday(calYear, calMonth, d);
-    var cls = 'cal-cell';
-    if (isHol) cls += ' holiday';
-    else if (isWe) cls += ' weekend';
-
-    var holName = isHol ? getHolidayName(calYear, calMonth, d) : '';
-    // Default hours: weekday 8, weekend/holiday 0
-    var defVal = (isHol || isWe) ? 0 : 8;
-    var saved = loadCalData(calYear, calMonth, d);
-    var val = saved !== null ? saved : defVal;
-    var cellId = 'cell-' + calYear + '-' + calMonth + '-' + d;
-
-    html += '<div class="' + cls + '" id="' + cellId + '">';
-    html += '<div class="day-num">' + d + (holName ? '<br><span style="font-size:9px">' + holName + '</span>' : '') + '</div>';
-    html += '<input type="number" step="0.5" min="0" max="24" value="' + val + '" onchange="onCellChange()" oninput="onCellChange()" placeholder="' + defVal + '">';
-    // Show small tag for hours beyond normal
-    html += '<div class="tag" style="display:none" id="tag-' + cellId + '"></div>';
-    html += '</div>';
-  }
-  // Fill remaining cells for last row
-  var totalCells = startDow + daysInMonth;
-  var remainder = totalCells % 7;
-  if (remainder > 0 && totalCells > 7) {
-    for (var j = 0; j < 7 - remainder; j++) {
-      html += '<div class="cal-cell other-month"></div>';
-    }
-  }
-
-  grid.innerHTML = html;
-  updateCalSummary();
-}
-
-function onCellChange() {
-  saveAllCalData();
-  updateCalSummary();
-}
-
-function getCellHours() {
-  var totalNormal = 0, otWeekday = 0, otWeekend = 0, otHoliday = 0;
-  var firstDay = new Date(calYear, calMonth - 1, 1);
-  var lastDay = new Date(calYear, calMonth, 0);
-  var daysInMonth = lastDay.getDate();
-  var startDow = firstDay.getDay();
-  startDow = startDow === 0 ? 6 : startDow - 1;
-
-  for (var d = 1; d <= daysInMonth; d++) {
-    var dow = (startDow + d - 1) % 7;
-    var isWe = dow >= 5;
-    var isHol = isHoliday(calYear, calMonth, d);
-    var cellId = 'cell-' + calYear + '-' + calMonth + '-' + d;
-    var cell = document.getElementById(cellId);
-    if (!cell) continue;
-    var inp = cell.querySelector('input');
-    var hrs = parseFloat(inp.value) || 0;
-
-    if (isHol) {
-      otHoliday += hrs;
-    } else if (isWe) {
-      otWeekend += hrs;
-    } else {
-      if (hrs <= 8) {
-        totalNormal += hrs;
-      } else {
-        totalNormal += 8;
-        otWeekday += (hrs - 8);
-      }
-    }
-
-    // Update tag
-    var tag = document.getElementById('tag-' + cellId);
-    if (tag) {
-      tag.style.display = 'none';
-      if (isHol && hrs > 0) { tag.textContent = 'OTx3'; tag.className = 'tag ot3'; tag.style.display = 'inline-block'; }
-      else if (isWe && hrs > 0) { tag.textContent = 'OTx2'; tag.className = 'tag ot2'; tag.style.display = 'inline-block'; }
-      else if (!isWe && !isHol && hrs > 8) { tag.textContent = '+' + (hrs - 8).toFixed(1) + 'h OT'; tag.className = 'tag ot15'; tag.style.display = 'inline-block'; }
-    }
-  }
-  return { normal: totalNormal, ot15: otWeekday, ot2: otWeekend, ot3: otHoliday };
-}
-
-function updateCalSummary() {
-  var h = getCellHours();
-  document.getElementById('sumNormal').textContent = h.normal.toFixed(1) + 'h';
-  document.getElementById('sumOT15').textContent = h.ot15.toFixed(1) + 'h';
-  document.getElementById('sumOT2').textContent = h.ot2.toFixed(1) + 'h';
-  document.getElementById('sumOT3').textContent = h.ot3.toFixed(1) + 'h';
-}
-
-function applyCalendarToSalary() {
-  var h = getCellHours();
-  // Fill overtime hours into the salary form
-  document.getElementById('otWeekday').value = h.ot15;
-  document.getElementById('otWeekend').value = h.ot2;
-  document.getElementById('otHoliday').value = h.ot3;
-  // Trigger salary calculation
-  calc();
-  // Scroll to results
-  document.getElementById('resultCard').scrollIntoView({ behavior: 'smooth' });
-}
-
-function batchFill(mode) {
-  var firstDay = new Date(calYear, calMonth - 1, 1);
-  var lastDay = new Date(calYear, calMonth, 0);
-  for (var d = 1; d <= lastDay.getDate(); d++) {
-    var dow = (firstDay.getDay() === 0 ? 6 : firstDay.getDay() - 1) + d - 1;
-    dow = dow % 7;
-    var isWe = dow >= 5;
-    var isHol = isHoliday(calYear, calMonth, d);
-    var hrs = 0;
-    if (mode === 'workday') { hrs = (!isWe && !isHol) ? 8 : 0; }
-    else if (mode === 'all') { hrs = 8; }
-    // mode === 'clear': hrs stays 0
-    var cell = document.getElementById('cell-' + calYear + '-' + calMonth + '-' + d);
-    if (cell) { cell.querySelector('input').value = hrs; }
-    saveCalData(calYear, calMonth, d, hrs);
-  }
-  updateCalSummary();
-}
-
-function toggleDeductions() {
-  var body = document.getElementById('deductionsBody');
-  var icon = document.getElementById('dedToggleIcon');
-  if (body.style.display === 'none') { body.style.display = 'block'; icon.textContent = '▲'; }
-  else { body.style.display = 'none'; icon.textContent = '▼'; }
-}
-
-function changeMonth(delta) {
-  calMonth += delta;
-  if (calMonth > 12) { calMonth = 1; calYear++; }
-  if (calMonth < 1) { calMonth = 12; calYear--; }
-  renderCalendar();
-}
-
-// ── Init Calendar ──
-(function() {
-  var now = new Date();
-  calYear = now.getFullYear();
-  calMonth = now.getMonth() + 1;
-})();
-
+function pad2(n) { return (n < 10 ? '0' : '') + n; }
+function ymd(y, m, d) { return y + '-' + pad2(m) + '-' + pad2(d); }
+function r2(n) { return Math.round(n * 100) / 100; }
+function fmt(n) { return r2(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmt0(n) { return Math.round(n).toLocaleString('zh-CN'); }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
-function fmt(n) { return n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-function calcSocialIns(base, type) {
-  var c = BASE_CAPS[type];
-  return clamp(base, c.min, c.max) * RATES[type];
+function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
+
+// 单日属性 —— 日历渲染、工时归类、批量填充三处共用，避免各写一份星期换算
+// type:  work=工作日 | makeup=调休补班 | rest=休息日/调休放假 | statutory=法定节假日
+// cap:   当日正常工时上限（超出部分按 mult 计加班）
+// mult:  加班倍数
+function getDayMeta(y, m, d) {
+  var h = HOLIDAYS[ymd(y, m, d)];
+  var dow = new Date(y, m - 1, d).getDay();   // 0=周日
+  var isWeekend = (dow === 0 || dow === 6);
+
+  if (h) {
+    if (h[0] === 1) return { type: 'statutory', label: h[1], cap: 0, mult: 3, dow: dow };
+    if (h[0] === 2) return { type: 'rest',      label: h[1], cap: 0, mult: 2, dow: dow };
+    return { type: 'makeup', label: h[1], cap: 8, mult: 1.5, dow: dow };
+  }
+  if (isWeekend) return { type: 'rest', label: '', cap: 0, mult: 2, dow: dow };
+  return { type: 'work', label: '', cap: 8, mult: 1.5, dow: dow };
 }
-function calcHousingFund() { return HOUSING_FUND_BASE * RATES.housingFund; }
-function calcOTPay(base, hrs, mul) {
-  if (!base || !hrs) return 0;
-  return base / 21.75 / 8 * hrs * mul;
-}
-function calcTax(taxable) {
+
+function taxOf(taxable, table) {
   if (taxable <= 0) return 0;
-  for (var i = 0; i < TAX_BRACKETS.length; i++) {
-    if (taxable <= TAX_BRACKETS[i].limit)
-      return Math.max(0, taxable * TAX_BRACKETS[i].rate - TAX_BRACKETS[i].qd);
-  }
-  return 0;
-}
-
-function calc() {
-  var base   = parseFloat(document.getElementById('baseSalary').value) || 0;
-  var bonus  = parseFloat(document.getElementById('bonus').value) || 0;
-  var sub    = parseFloat(document.getElementById('subsidy').value) || 0;
-
-  var otWd   = parseFloat(document.getElementById('otWeekday').value) || 0;
-  var otWe   = parseFloat(document.getElementById('otWeekend').value) || 0;
-  var otHo   = parseFloat(document.getElementById('otHoliday').value) || 0;
-  var otPay  = calcOTPay(base, otWd, 1.5) + calcOTPay(base, otWe, 2) + calcOTPay(base, otHo, 3);
-  var yeb    = parseFloat(document.getElementById('yearEndBonus').value) || 0;
-
-  var dedCE  = (parseInt(document.getElementById('dedChildEdu').value) || 0) * 2000;
-  var dedInf = (parseInt(document.getElementById('dedInfant').value) || 0) * 2000;
-  var dedCon = parseInt(document.getElementById('dedContEdu').value) || 0;
-  var dedMor = parseInt(document.getElementById('dedMortgage').value) || 0;
-  var dedRnt = parseInt(document.getElementById('dedRent').value) || 0;
-  var dedHou = dedRnt > 0 ? dedRnt : dedMor;
-  var dedEld = parseInt(document.getElementById('dedElderly').value) || 0;
-  var specDed = dedCE + dedInf + dedCon + dedHou + dedEld;
-
-  var gross = base + bonus + sub + otPay;
-
-  // 未输入工资时不产生任何扣款
-  var siTot, hf, tax, net;
-  if (gross === 0) {
-    siTot = hf = tax = net = 0;
-  } else {
-    // 社保按深圳一档最低基数缴纳，固定金额
-    siTot = 521.58;
-    hf = calcHousingFund();
-    var taxable = gross - siTot - hf - 5000 - specDed;
-    tax = calcTax(taxable);
-    net = gross - siTot - hf - tax;
-  }
-
-  // 年终奖单独计税：÷12 找月度税率表
-  var yebTax = 0, yebAfter = 0;
-  if (yeb > 0) {
-    var m = yeb / 12;
-    for (var i = 0; i < TAX_BRACKETS.length; i++) {
-      if (m <= TAX_BRACKETS[i].limit) {
-        yebTax = Math.max(0, yeb * TAX_BRACKETS[i].rate - TAX_BRACKETS[i].qd);
-        break;
-      }
+  for (var i = 0; i < table.length; i++) {
+    // 边界为闭区间：累计应纳税所得额恰为 36000 时适用 3% 而非 10%
+    if (taxable <= table[i].upTo) {
+      return Math.max(0, taxable * table[i].rate - table[i].qd);
     }
-    yebAfter = yeb - yebTax;
   }
-
-  // 年度总计
-  var annualPre  = gross * 12 + yeb;
-  var annualPost = net * 12 + yebAfter;
-
-  // ── Update UI ──
-
-  // Overtime detail
-  var otEl = document.getElementById('otResult');
-  if (otPay > 0) {
-    var ow = calcOTPay(base, otWd, 1.5);
-    var oe = calcOTPay(base, otWe, 2);
-    var oh = calcOTPay(base, otHo, 3);
-    otEl.innerHTML = '<span class="ot-total">加班费合计 ¥' + fmt(otPay) + '</span>' +
-      '<span class="ot-detail">（工作日 ¥' + fmt(ow) + ' · 休息日 ¥' + fmt(oe) + ' · 节假日 ¥' + fmt(oh) + '）</span>';
-    otEl.classList.add('show');
-  } else {
-    otEl.classList.remove('show');
-  }
-
-  document.getElementById('preTaxSalary').textContent  = '¥' + fmt(gross);
-  document.getElementById('afterTaxSalary').textContent = '¥' + fmt(net);
-  document.getElementById('preTaxAnnual').textContent   = '年薪（含年终奖）¥' + fmt(annualPre);
-  document.getElementById('afterTaxAnnual').textContent  = '年薪（含年终奖）¥' + fmt(annualPost);
-
-  document.getElementById('rowBase').textContent          = '¥' + fmt(base);
-  document.getElementById('rowBonus').textContent         = '¥' + fmt(bonus);
-  document.getElementById('rowSubsidy').textContent       = '¥' + fmt(sub);
-  document.getElementById('rowOT').textContent            = '¥' + fmt(otPay);
-  document.getElementById('rowYEB').textContent           = '¥' + fmt(yeb);
-  document.getElementById('rowGross').textContent         = '¥' + fmt(gross);
-  document.getElementById('rowSocialIns').textContent     = '-¥' + fmt(siTot);
-  document.getElementById('rowHousingFund').textContent   = '-¥' + fmt(hf);
-  document.getElementById('rowTax').textContent           = '-¥' + fmt(tax);
-  document.getElementById('rowYEBTax').textContent        = '-¥' + fmt(yebTax);
-  document.getElementById('rowTotalDeduct').textContent   = '-¥' + fmt(siTot + hf + tax + yebTax);
-
-  var ratio = gross > 0 ? ((siTot + hf + tax) / gross * 100) : 0;
-  document.getElementById('deductRatio').textContent = ratio.toFixed(1) + '%';
-  document.getElementById('ratioFill').style.width = Math.min(ratio, 100).toFixed(0) + '%';
-
-  saveFormData();
+  // 表末档 upTo 为 Infinity，正常不会走到这里；真走到了也要落最高档而不是 0
+  var last = table[table.length - 1];
+  return Math.max(0, taxable * last.rate - last.qd);
 }
 
-// ── Form persistence ──
-var FORM_FIELDS = ['baseSalary','bonus','subsidy','yearEndBonus','otWeekday','otWeekend','otHoliday',
-  'dedChildEdu','dedInfant','dedContEdu','dedMortgage','dedRent','dedElderly'];
+// 某月工时汇总。data 为该月已填工时，未填的日子按当日默认值
+//（工作日与补班日 8h、休息日与法定节假日 0h）。
+function getMonthHoursFrom(y, m, data) {
+  var total = daysInMonth(y, m);
+  var required = 0, normal = 0, ot15 = 0, ot2 = 0, ot3 = 0, filled = false;
 
-function saveFormData() {
-  var data = {};
+  for (var d = 1; d <= total; d++) {
+    var meta = getDayMeta(y, m, d);
+    required += meta.cap;
+
+    var hrs;
+    if (!data.hasOwnProperty(d)) {
+      hrs = meta.cap;                              // 未填 → 默认值
+    } else {
+      filled = true;
+      // 显式清空 → 0，不复活默认值。同时夹逼到 0~24：
+      // 负数会让缺勤翻倍、加班费变负，超大值会凭空造出加班费。
+      var raw = data[d];
+      hrs = (raw === null || raw === undefined) ? 0 : clamp(parseFloat(raw) || 0, 0, 24);
+    }
+
+    if (meta.cap > 0) {
+      normal += Math.min(hrs, meta.cap);
+      if (hrs > meta.cap) ot15 += hrs - meta.cap;  // 工作日/补班日超 8h 部分 1.5 倍
+    } else if (meta.mult === 2) {
+      ot2 += hrs;                                  // 休息日与调休放假日全额 2 倍
+    } else {
+      ot3 += hrs;                                  // 法定节假日全额 3 倍
+    }
+  }
+  return {
+    required: required, normal: normal, ot15: ot15, ot2: ot2, ot3: ot3,
+    absent: Math.max(0, required - normal), filled: filled
+  };
+}
+
+// 累计预扣预缴法：给定逐月税前收入，逐月算出应预扣的个税。
+// active 表示这一年是否在职。在职期间即使某月因缺勤把工资扣光，
+// 社保公积金照缴、减除费用照算；完全没填工资时才全部归零。
+function accumulateTax(grossList, si, hf, specMonthly, active) {
+  var cumIncome = 0, cumDeduct = 0, cumSpec = 0, cumTax = 0;
+  var out = [];
+
+  for (var i = 0; i < grossList.length; i++) {
+    var gross = grossList[i];
+    var mSi = active ? si : 0;
+    var mHf = active ? hf : 0;
+
+    cumIncome += gross;
+    cumDeduct += mSi + mHf;
+    cumSpec += specMonthly;
+
+    var cumTaxable = Math.max(0, cumIncome - BASIC_DEDUCTION * (i + 1) - cumDeduct - cumSpec);
+    var shouldTax = r2(taxOf(cumTaxable, TAX_ANNUAL));
+    // 本期为负时按 0 申报，且累计已预扣额不回冲（否则下月会重复扣税）。
+    // 多预扣的部分由纳税人次年汇算清缴时退还。
+    var monthTax = Math.max(0, r2(shouldTax - cumTax));
+    cumTax += monthTax;
+
+    out.push({ si: mSi, hf: mHf, cumTaxable: cumTaxable, tax: monthTax });
+  }
+  return out;
+}
+
+// 月薪制底薪折算：满勤即全额，缺勤按 21.75 天口径扣。
+// 不用"实际工时×时薪"，否则工作日多的月份会算出超过底薪的金额；
+// 又因 21.75 是全年月均值，短月（春节月应出勤仅 128h）零出勤会算出正数，
+// 所以缺勤扣满应出勤时直接归零。
+function basePayOf(base, hours) {
+  if (base <= 0) return 0;
+  if (hours.absent >= hours.required) return 0;
+  return Math.max(0, base - (base / MONTH_HOURS) * hours.absent);
+}
+
+// 加班费：工作日超 8h 部分 1.5 倍、休息日 2 倍、法定节假日 3 倍
+function otPayOf(base, hours) {
+  if (base <= 0) return 0;
+  return (base / MONTH_HOURS) * (hours.ot15 * 1.5 + hours.ot2 * 2 + hours.ot3 * 3);
+}
+
+// 全年一次性奖金：÷12 只用于查税率档位
+function yebBracket(yeb) {
+  var div = yeb / 12;
+  for (var i = 0; i < TAX_MONTHLY.length; i++) {
+    if (div <= TAX_MONTHLY[i].upTo) return TAX_MONTHLY[i];
+  }
+  return TAX_MONTHLY[TAX_MONTHLY.length - 1];
+}
+
+// 乘的是奖金全额，速算扣除数只减一次（不是 ÷12 计税后再 ×12）
+function yebTaxOf(yeb) {
+  if (yeb <= 0) return 0;
+  var br = yebBracket(yeb);
+  return Math.max(0, r2(yeb * br.rate - br.qd));
+}
+
+// ══════════════ PURE-LOGIC END ══════════════
+
+// ═══════════════════════════════════════════════════════════
+//  存储
+// ═══════════════════════════════════════════════════════════
+
+var calYear, calMonth;
+
+function hoursKey(y, m) { return 'salary-hours-' + y + '-' + pad2(m); }
+function formKey(y)     { return 'salary-form-' + y; }
+
+function loadHours(y, m) {
+  try { return JSON.parse(localStorage.getItem(hoursKey(y, m)) || '{}'); }
+  catch (e) { return {}; }
+}
+function saveHours(y, m, data) {
+  try { localStorage.setItem(hoursKey(y, m), JSON.stringify(data)); } catch (e) {}
+}
+function isMonthFilled(y, m) {
+  var d = loadHours(y, m);
+  for (var k in d) if (d.hasOwnProperty(k)) return true;
+  return false;
+}
+
+var FORM_FIELDS = ['baseSalary', 'bonus', 'subsidy', 'yearEndBonus', 'siBase', 'hfBase', 'hfRate',
+  'dedChildEdu', 'dedInfant', 'dedContEdu', 'dedHousing', 'dedElderly'];
+
+// 逐月覆盖：{ "3": {bonus: 5000, subsidy: 300}, ... }
+var monthOverrides = {};
+
+function saveForm() {
+  var data = { overrides: monthOverrides };
   FORM_FIELDS.forEach(function(id) {
     var el = document.getElementById(id);
     if (el) data[id] = el.value;
   });
-  localStorage.setItem('salary-form-data', JSON.stringify(data));
+  try { localStorage.setItem(formKey(calYear), JSON.stringify(data)); } catch (e) {}
 }
 
-function loadFormData() {
-  try {
-    var data = JSON.parse(localStorage.getItem('salary-form-data') || '{}');
-    FORM_FIELDS.forEach(function(id) {
-      if (data.hasOwnProperty(id)) {
-        var el = document.getElementById(id);
-        if (el) el.value = data[id];
-      }
+function loadForm() {
+  var data = {};
+  try { data = JSON.parse(localStorage.getItem(formKey(calYear)) || '{}'); } catch (e) {}
+  FORM_FIELDS.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.value = data.hasOwnProperty(id) ? data[id] : (id === 'hfRate' ? '0.05' : '');
+    // 给 select 赋一个不在 option 里的值（如空串）会让 selectedIndex 变 -1、
+    // 控件显示空白，回退到第一项
+    if (el.tagName === 'SELECT' && el.selectedIndex === -1) el.selectedIndex = 0;
+  });
+  monthOverrides = data.overrides || {};
+}
+
+// ═══════════════════════════════════════════════════════════
+//  工时统计
+// ═══════════════════════════════════════════════════════════
+
+function getMonthHours(y, m) {
+  return getMonthHoursFrom(y, m, loadHours(y, m));
+}
+
+// ═══════════════════════════════════════════════════════════
+//  薪资计算
+// ═══════════════════════════════════════════════════════════
+
+function num(id) { return parseFloat(document.getElementById(id).value) || 0; }
+function intv(id) { return parseInt(document.getElementById(id).value, 10) || 0; }
+
+function getSocialIns() {
+  var custom = num('siBase');
+  var items = [], total = 0;
+  SOCIAL_INS.forEach(function(s) {
+    var base = custom > 0 ? clamp(custom, s.min, s.max) : s.min;
+    var amt = r2(base * s.rate);
+    total += amt;
+    items.push(s.name + ' ' + fmt(base) + '×' + (s.rate * 100).toFixed(1) + '%=' + fmt(amt));
+  });
+  return { total: r2(total), items: items };
+}
+
+function getHousingFund() {
+  var custom = num('hfBase');
+  var base = custom > 0 ? clamp(custom, HF.min, HF.max) : HF.min;
+  var rate = parseFloat(document.getElementById('hfRate').value) || HF.defaultRate;
+  return { total: r2(base * rate), base: base, rate: rate };
+}
+
+// 专项附加扣除的月标准合计
+function getSpecialDeduction() {
+  var contEdu = intv('dedContEdu');
+  // 职业资格继续教育是 3,600 元/年定额，折成月标准 300 元参与累计
+  return intv('dedChildEdu') * 2000
+       + intv('dedInfant') * 2000
+       + contEdu
+       + intv('dedHousing')
+       + intv('dedElderly');
+}
+
+function monthValue(m, field, fallback) {
+  var o = monthOverrides[m];
+  if (o && o.hasOwnProperty(field) && o[field] !== '' && o[field] !== null) {
+    return parseFloat(o[field]) || 0;
+  }
+  return fallback;
+}
+
+// 全年逐月推演：加班费、出勤折算、累计预扣预缴
+function calcYear() {
+  var base = num('baseSalary');
+  var bonusDefault = num('bonus');
+  var subDefault = num('subsidy');
+
+  var si = getSocialIns().total;
+  var hf = getHousingFund().total;
+  var specMonthly = getSpecialDeduction();
+
+  // 第一步：按日历推出每月税前收入
+  var months = [], grossList = [];
+  for (var m = 1; m <= 12; m++) {
+    var h = getMonthHours(calYear, m);
+
+    var basePay = basePayOf(base, h);
+    var otPay = otPayOf(base, h);
+    var bonus = monthValue(m, 'bonus', bonusDefault);
+    var sub = monthValue(m, 'subsidy', subDefault);
+    var gross = basePay + otPay + bonus + sub;
+
+    months.push({ m: m, hours: h, basePay: basePay, otPay: otPay,
+                  bonus: bonus, sub: sub, gross: gross });
+    grossList.push(gross);
+  }
+
+  // 第二步：按累计预扣预缴法逐月算税
+  var active = (base > 0 || bonusDefault > 0 || subDefault > 0);
+  var taxRows = accumulateTax(grossList, si, hf, specMonthly, active);
+  for (var i = 0; i < months.length; i++) {
+    var r = months[i], t = taxRows[i];
+    r.si = t.si; r.hf = t.hf; r.cumTaxable = t.cumTaxable; r.tax = t.tax;
+    r.net = r.gross - t.si - t.hf - t.tax;
+  }
+  return months;
+}
+
+function calcYearEndBonus() {
+  var yeb = num('yearEndBonus');
+  if (yeb <= 0) return { yeb: 0, div: 0, rate: 0, qd: 0, tax: 0, net: 0 };
+  var br = yebBracket(yeb);
+  var tax = yebTaxOf(yeb);
+  return { yeb: yeb, div: yeb / 12, rate: br.rate, qd: br.qd, tax: tax, net: yeb - tax };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  渲染
+// ═══════════════════════════════════════════════════════════
+
+function calc() {
+  var months = calcYear();
+  var sel = parseInt(document.getElementById('taxMonth').value, 10) || 1;
+  var cur = months[sel - 1];
+  var yebInfo = calcYearEndBonus();
+
+  var siInfo = getSocialIns();
+  var hfInfo = getHousingFund();
+
+  // ── 结果卡 ──
+  document.getElementById('preTaxSalary').textContent = '¥' + fmt(cur.gross);
+  document.getElementById('afterTaxSalary').textContent = '¥' + fmt(cur.net);
+
+  var totGross = 0, totNet = 0, totTax = 0, totOT = 0, totBonus = 0, totSub = 0;
+  months.forEach(function(x) {
+    totGross += x.gross; totNet += x.net; totTax += x.tax;
+    totOT += x.otPay; totBonus += x.bonus; totSub += x.sub;
+  });
+  document.getElementById('preTaxAnnual').textContent =
+    '年度合计（含年终奖）¥' + fmt0(totGross + yebInfo.yeb);
+  document.getElementById('afterTaxAnnual').textContent =
+    '年度合计（含年终奖）¥' + fmt0(totNet + yebInfo.net);
+
+  // ── 当月明细 ──
+  document.getElementById('rowBase').textContent = '¥' + fmt(cur.basePay);
+  document.getElementById('rowBonus').textContent = '¥' + fmt(cur.bonus);
+  document.getElementById('rowSubsidy').textContent = '¥' + fmt(cur.sub);
+  document.getElementById('rowOT').textContent = '¥' + fmt(cur.otPay);
+  document.getElementById('rowGross').textContent = '¥' + fmt(cur.gross);
+  document.getElementById('rowSocialIns').textContent = '-¥' + fmt(cur.si);
+  document.getElementById('rowHousingFund').textContent = '-¥' + fmt(cur.hf);
+  document.getElementById('rowTax').textContent = '-¥' + fmt(cur.tax);
+  document.getElementById('rowTotalDeduct').textContent = '-¥' + fmt(cur.si + cur.hf + cur.tax);
+
+  var h = cur.hours;
+  document.getElementById('attendNote').textContent =
+    h.absent > 0 ? '（缺勤 ' + h.absent.toFixed(1) + 'h，应出勤 ' + h.required + 'h）' : '（满勤）';
+  var otParts = [];
+  if (h.ot15 > 0) otParts.push('工作日 ' + h.ot15.toFixed(1) + 'h');
+  if (h.ot2 > 0) otParts.push('休息日 ' + h.ot2.toFixed(1) + 'h');
+  if (h.ot3 > 0) otParts.push('法定假 ' + h.ot3.toFixed(1) + 'h');
+  document.getElementById('otNote').textContent = otParts.length ? '（' + otParts.join(' · ') + '）' : '';
+  document.getElementById('siNote').textContent = '（' + fmt(siInfo.total) + '/月）';
+  document.getElementById('hfNote').textContent =
+    '（基数 ' + fmt0(hfInfo.base) + ' × ' + (hfInfo.rate * 100).toFixed(0) + '%）';
+  document.getElementById('siDetail').innerHTML = siInfo.items.join('<br>') +
+    '<br>合计 ' + fmt(siInfo.total) + ' 元/月';
+
+  // 扣除占比：分子分母都只用当月口径，不混入年终奖
+  var ratio = cur.gross > 0 ? ((cur.si + cur.hf + cur.tax) / cur.gross * 100) : 0;
+  document.getElementById('deductRatio').textContent = ratio.toFixed(1) + '%';
+  document.getElementById('ratioFill').style.width = Math.min(ratio, 100).toFixed(0) + '%';
+
+  // ── 年终奖 ──
+  document.getElementById('rowYEB').textContent = '¥' + fmt(yebInfo.yeb);
+  document.getElementById('rowYEBDiv').textContent = '¥' + fmt(yebInfo.div);
+  document.getElementById('rowYEBRate').textContent =
+    yebInfo.yeb > 0 ? (yebInfo.rate * 100).toFixed(0) + '% / ' + fmt0(yebInfo.qd) : '—';
+  document.getElementById('rowYEBTax').textContent = '-¥' + fmt(yebInfo.tax);
+  document.getElementById('rowYEBNet').textContent = '¥' + fmt(yebInfo.net);
+  renderYebWarning(yebInfo.yeb);
+
+  // ── 逐月表 ──
+  updateMonthTable(months, sel);
+  document.getElementById('ftOT').textContent = '¥' + fmt0(totOT);
+  document.getElementById('ftBonus').textContent = '¥' + fmt0(totBonus);
+  document.getElementById('ftSub').textContent = '¥' + fmt0(totSub);
+  document.getElementById('ftGross').textContent = '¥' + fmt0(totGross);
+  document.getElementById('ftTax').textContent = '¥' + fmt0(totTax);
+  document.getElementById('ftNet').textContent = '¥' + fmt0(totNet);
+
+  saveForm();
+}
+
+// 逐月表的 DOM 只构建一次，之后 calc() 仅改写单元格文本。
+// 若每次都重建 innerHTML，用户正在输入的奖金框会被替换掉而失去焦点。
+var monthTableBuilt = false;
+
+function buildMonthTable() {
+  var rows = '';
+  for (var m = 1; m <= 12; m++) {
+    rows += '<tr id="mrow-' + m + '">' +
+      '<td>' + m + '月</td>' +
+      '<td id="mc-attend-' + m + '">—</td>' +
+      '<td id="mc-ot-' + m + '">¥0</td>' +
+      '<td><input type="number" step="0.01" min="0" id="mi-bonus-' + m +
+        '" oninput="setOverride(' + m + ',\'bonus\',this.value)"></td>' +
+      '<td><input type="number" step="0.01" min="0" id="mi-subsidy-' + m +
+        '" oninput="setOverride(' + m + ',\'subsidy\',this.value)"></td>' +
+      '<td id="mc-gross-' + m + '">¥0</td>' +
+      '<td id="mc-cum-' + m + '">¥0</td>' +
+      '<td class="col-tax" id="mc-tax-' + m + '">¥0</td>' +
+      '<td class="col-net" id="mc-net-' + m + '">¥0</td>' +
+      '</tr>';
+  }
+  document.getElementById('monthTableBody').innerHTML = rows;
+  monthTableBuilt = true;
+}
+
+function updateMonthTable(months, sel) {
+  if (!monthTableBuilt) buildMonthTable();
+  var ph = { bonus: fmt0(num('bonus')), subsidy: fmt0(num('subsidy')) };
+
+  months.forEach(function(x) {
+    var cls = [];
+    if (x.m === sel) cls.push('current');
+    if (x.hours.filled) cls.push('filled');
+    document.getElementById('mrow-' + x.m).className = cls.join(' ');
+
+    document.getElementById('mc-attend-' + x.m).textContent = x.hours.absent > 0
+      ? '缺' + x.hours.absent.toFixed(1) + 'h'
+      : (x.hours.required > 0 ? '满勤' : '—');
+    document.getElementById('mc-ot-' + x.m).textContent    = '¥' + fmt0(x.otPay);
+    document.getElementById('mc-gross-' + x.m).textContent = '¥' + fmt0(x.gross);
+    document.getElementById('mc-cum-' + x.m).textContent   = '¥' + fmt0(x.cumTaxable);
+    document.getElementById('mc-tax-' + x.m).textContent   = '¥' + fmt0(x.tax);
+    document.getElementById('mc-net-' + x.m).textContent   = '¥' + fmt0(x.net);
+
+    ['bonus', 'subsidy'].forEach(function(f) {
+      var el = document.getElementById('mi-' + f + '-' + x.m);
+      el.placeholder = ph[f];
+      // 正在输入的框不回写 value，否则光标会跳到末尾
+      if (document.activeElement !== el) el.value = overrideVal(x.m, f);
     });
-  } catch(e) {}
+  });
 }
 
-loadFormData();
-renderCalendar();
-calc();
+function overrideVal(m, field) {
+  var o = monthOverrides[m];
+  return (o && o.hasOwnProperty(field) && o[field] !== null) ? o[field] : '';
+}
+
+function setOverride(m, field, val) {
+  if (!monthOverrides[m]) monthOverrides[m] = {};
+  if (val === '') delete monthOverrides[m][field];
+  else monthOverrides[m][field] = val;
+  calc();
+}
+
+// 年终奖临界点：多发 1 元反而少拿的区间
+function renderYebWarning(yeb) {
+  var box = document.getElementById('yebWarn');
+  if (yeb <= 0) { box.className = 'crit-warn hidden'; return; }
+  for (var i = 0; i < YEB_CRITICAL.length; i++) {
+    var c = YEB_CRITICAL[i];
+    if (yeb > c && yeb <= c * 1.35) {
+      var taxAtC = yebTaxOf(c), taxNow = yebTaxOf(yeb);
+      var netAtC = c - taxAtC, netNow = yeb - taxNow;
+      if (netNow < netAtC) {
+        box.className = 'crit-warn';
+        box.innerHTML = '⚠️ <strong>年终奖临界区</strong>：当前 ' + fmt0(yeb) +
+          ' 元到手 ' + fmt0(netNow) + ' 元；若发 ' + fmt0(c) + ' 元反而到手 ' +
+          fmt0(netAtC) + ' 元，<strong>多发 ' + fmt0(yeb - c) + ' 元却少拿 ' +
+          fmt0(netAtC - netNow) + ' 元</strong>。';
+        return;
+      }
+    }
+  }
+  box.className = 'crit-warn hidden';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  日历
+// ═══════════════════════════════════════════════════════════
+
+function renderCalendar() {
+  var grid = document.getElementById('calendarGrid');
+  document.getElementById('calMonthTitle').textContent = calYear + '年' + calMonth + '月';
+
+  var total = daysInMonth(calYear, calMonth);
+  var startDow = new Date(calYear, calMonth - 1, 1).getDay();
+  startDow = startDow === 0 ? 6 : startDow - 1;   // 周一=0
+
+  var data = loadHours(calYear, calMonth);
+  var html = '';
+  for (var i = 0; i < startDow; i++) html += '<div class="cal-cell other-month"></div>';
+
+  for (var d = 1; d <= total; d++) {
+    var meta = getDayMeta(calYear, calMonth, d);
+    var val;
+    if (!data.hasOwnProperty(d)) val = meta.cap;
+    else if (data[d] === null) val = '';
+    else val = data[d];
+
+    html += '<div class="cal-cell ' + meta.type + '">' +
+      '<div class="day-num">' + d +
+        (meta.label ? '<span class="hol-name">' + meta.label + '</span>' : '') +
+      '</div>' +
+      '<input type="number" step="0.5" min="0" max="24" value="' + val +
+        '" data-day="' + d + '" oninput="onCellChange()">' +
+      '<div class="tag" id="tag-' + d + '" style="display:none"></div>' +
+      '</div>';
+  }
+  var remainder = (startDow + total) % 7;
+  if (remainder > 0) for (var j = 0; j < 7 - remainder; j++) html += '<div class="cal-cell other-month"></div>';
+
+  grid.innerHTML = html;
+
+  var warn = document.getElementById('calWarn');
+  if (HOLIDAY_YEARS.indexOf(calYear) === -1) {
+    warn.className = 'warn-box';
+    warn.innerHTML = '⚠️ ' + calYear + ' 年的法定节假日与调休安排尚未收录，当前仅按周六日判断休息日，' +
+      '节假日加班倍数与补班日可能不准。已收录年份：' + HOLIDAY_YEARS.join('、') + '。';
+  } else {
+    warn.className = 'warn-box hidden';
+  }
+
+  updateSummary();
+}
+
+// 输入即落盘，所有计算统一从 localStorage 读，避免 DOM 与存储两套真源
+function onCellChange() {
+  var data = {};
+  var inputs = document.querySelectorAll('#calendarGrid input');
+  for (var i = 0; i < inputs.length; i++) {
+    var d = inputs[i].getAttribute('data-day');
+    var raw = inputs[i].value.trim();
+    // 空串存 null（"这天没上班"），与"未填"区分开，切月回来不会复活默认值。
+    // min/max 属性只参与表单校验，挡不住手动键入 -8 或 100，所以这里夹逼。
+    data[d] = raw === '' ? null : clamp(parseFloat(raw) || 0, 0, 24);
+  }
+  saveHours(calYear, calMonth, data);
+  updateSummary();
+  calc();
+}
+
+function updateSummary() {
+  var h = getMonthHours(calYear, calMonth);
+  document.getElementById('sumRequired').textContent = h.required + 'h';
+  document.getElementById('sumNormal').textContent = h.normal.toFixed(1) + 'h';
+  document.getElementById('sumOT15').textContent = h.ot15.toFixed(1) + 'h';
+  document.getElementById('sumOT2').textContent = h.ot2.toFixed(1) + 'h';
+  document.getElementById('sumOT3').textContent = h.ot3.toFixed(1) + 'h';
+
+  // 单元格角标
+  var data = loadHours(calYear, calMonth);
+  var total = daysInMonth(calYear, calMonth);
+  for (var d = 1; d <= total; d++) {
+    var tag = document.getElementById('tag-' + d);
+    if (!tag) continue;
+    var meta = getDayMeta(calYear, calMonth, d);
+    var hrs;
+    if (!data.hasOwnProperty(d)) hrs = meta.cap;
+    else if (data[d] === null) hrs = 0;
+    else hrs = data[d];
+
+    tag.style.display = 'none';
+    if (meta.cap > 0 && hrs > meta.cap) {
+      tag.textContent = '+' + (hrs - meta.cap).toFixed(1) + 'h';
+      tag.className = 'tag ot15'; tag.style.display = 'inline-block';
+    } else if (meta.mult === 2 && hrs > 0) {
+      tag.textContent = 'OT×2'; tag.className = 'tag ot2'; tag.style.display = 'inline-block';
+    } else if (meta.mult === 3 && hrs > 0) {
+      tag.textContent = 'OT×3'; tag.className = 'tag ot3'; tag.style.display = 'inline-block';
+    }
+  }
+
+  var n = 0;
+  for (var m = 1; m <= 12; m++) if (isMonthFilled(calYear, m)) n++;
+  document.getElementById('filledHint').textContent = '已填 ' + n + '/12 个月';
+}
+
+function changeMonth(delta) {
+  calMonth += delta;
+  // 跨年时必须重新载入该年度的表单数据：calc() 末尾的 saveForm() 会按新的
+  // calYear 写盘，不重载就会把上一年的底薪/逐月覆盖写进新年度、冲掉原有存档。
+  if (calMonth > 12) { calMonth = 1;  calYear++; setYearSelect(calYear); loadForm(); }
+  if (calMonth < 1)  { calMonth = 12; calYear--; setYearSelect(calYear); loadForm(); }
+  renderCalendar();
+  syncMonthSelect();
+  calc();
+}
+
+// 按当日默认值填充：工作日与补班日 8h，休息日与法定假 0h
+function batchFill(mode) {
+  if (mode === 'clear') {
+    // 抹掉记录回到"未填"，与「重置全年」语义一致。
+    // 若写成全 null 则等于"全月缺勤"，工资几乎归零，与按钮字面意思相反。
+    try { localStorage.removeItem(hoursKey(calYear, calMonth)); } catch (e) {}
+  } else {
+    var total = daysInMonth(calYear, calMonth);
+    var data = {};
+    for (var d = 1; d <= total; d++) data[d] = getDayMeta(calYear, calMonth, d).cap;
+    saveHours(calYear, calMonth, data);
+  }
+  renderCalendar();
+  calc();
+}
+
+function clearYear() {
+  if (!confirm('确定清空 ' + calYear + ' 年全部 12 个月已填的工时吗？此操作不可撤销。')) return;
+  for (var m = 1; m <= 12; m++) {
+    try { localStorage.removeItem(hoursKey(calYear, m)); } catch (e) {}
+  }
+  renderCalendar();
+  calc();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Tab / 年份 / 月份
+// ═══════════════════════════════════════════════════════════
+
+// btn 显式传入，不依赖隐式全局 event（程序化调用时 event 为 undefined）
+function switchTab(name, btn) {
+  var btns = document.querySelectorAll('.tab-btn');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+  var panels = document.querySelectorAll('.tab-panel');
+  for (var j = 0; j < panels.length; j++) panels[j].classList.remove('active');
+
+  document.getElementById('tab-' + name).classList.add('active');
+  if (!btn) btn = document.querySelector('.tab-btn[onclick*="' + name + '"]');
+  if (btn) btn.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function toggleBox(bodyId, iconId) {
+  var body = document.getElementById(bodyId);
+  var icon = document.getElementById(iconId);
+  var open = body.style.display === 'none';
+  body.style.display = open ? 'block' : 'none';
+  icon.textContent = open ? '▲' : '▼';
+}
+
+function setYearSelect(y) {
+  var sel = document.getElementById('taxYear');
+  var found = false;
+  for (var i = 0; i < sel.options.length; i++) {
+    if (parseInt(sel.options[i].value, 10) === y) { found = true; break; }
+  }
+  if (!found) {
+    var opt = document.createElement('option');
+    opt.value = y; opt.textContent = y + ' 年';
+    sel.appendChild(opt);
+  }
+  sel.value = String(y);
+}
+
+function onYearChange() {
+  calYear = parseInt(document.getElementById('taxYear').value, 10);
+  loadForm();          // 每个年度一套表单数据，切年重新载入
+  renderCalendar();
+  syncMonthSelect();
+  calc();
+}
+
+function syncMonthSelect() {
+  var sel = document.getElementById('taxMonth');
+  if (sel.options.length !== 12) {
+    var html = '';
+    for (var m = 1; m <= 12; m++) html += '<option value="' + m + '">' + m + ' 月</option>';
+    sel.innerHTML = html;
+  }
+  sel.value = String(calMonth);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  启动
+// ═══════════════════════════════════════════════════════════
+
+(function init() {
+  var now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth() + 1;
+
+  var ysel = document.getElementById('taxYear');
+  var years = HOLIDAY_YEARS.slice();
+  if (years.indexOf(calYear) === -1) years.push(calYear);
+  years.sort();
+  ysel.innerHTML = years.map(function(y) { return '<option value="' + y + '">' + y + ' 年</option>'; }).join('');
+  ysel.value = String(calYear);
+
+  syncMonthSelect();
+  loadForm();
+  renderCalendar();
+  calc();
+})();
 </script>
+
 <script>
 // ── Service Worker ──
 if ('serviceWorker' in navigator) {
@@ -995,35 +1341,31 @@ var deferredPrompt = null;
 var banner = document.getElementById('installBanner');
 var btnInstall = document.getElementById('btnInstall');
 
-// Chrome / 支持 PWA 的浏览器：捕获 beforeinstallprompt
 window.addEventListener('beforeinstallprompt', function(e) {
   e.preventDefault();
   deferredPrompt = e;
-  banner.style.display = 'flex';
+  banner.classList.remove('hidden');
   btnInstall.textContent = '一键安装';
   document.body.style.paddingTop = '52px';
 });
 
-// 已安装后隐藏
 window.addEventListener('appinstalled', function() {
-  banner.style.display = 'none';
+  banner.classList.add('hidden');
   document.body.style.paddingTop = '0';
   deferredPrompt = null;
 });
 
-// 非 Chrome 浏览器（OPPO 自带等）：检测后显示引导
 window.addEventListener('load', function() {
   var isStandalone = window.matchMedia('(display-mode: standalone)').matches
                   || navigator.standalone
-                  || document.referrer.includes('android-app://');
+                  || document.referrer.indexOf('android-app://') > -1;
   if (!isStandalone && !deferredPrompt) {
-    // 没有 beforeinstallprompt → 不支持原生PWA安装 → 显示引导
     var ua = navigator.userAgent.toLowerCase();
     var isAndroid = ua.indexOf('android') > -1;
     var isChrome = ua.indexOf('chrome') > -1 && ua.indexOf('edg') === -1;
     if (isAndroid && !isChrome) {
       setTimeout(function() {
-        banner.style.display = 'flex';
+        banner.classList.remove('hidden');
         btnInstall.textContent = '如何安装';
         document.querySelector('.install-banner .msg').innerHTML =
           '📱 <strong>建议用 Chrome 打开</strong> · 体验更佳 · 点右边看教程';
@@ -1035,17 +1377,15 @@ window.addEventListener('load', function() {
 
 function installApp() {
   if (deferredPrompt) {
-    // Chrome 原生安装
     deferredPrompt.prompt();
     deferredPrompt.userChoice.then(function(r) {
       if (r.outcome === 'accepted') {
-        banner.style.display = 'none';
+        banner.classList.add('hidden');
         document.body.style.paddingTop = '0';
       }
       deferredPrompt = null;
     });
   } else {
-    // OPPO浏览器等 → 弹窗引导
     alert('📱 安装到桌面教程：\n\n' +
       '方法一（推荐）：\n' +
       '① 打开应用商店搜索 Chrome\n' +
@@ -1059,7 +1399,7 @@ function installApp() {
 }
 
 function dismissBanner() {
-  banner.style.display = 'none';
+  banner.classList.add('hidden');
   document.body.style.paddingTop = '0';
 }
 </script>
