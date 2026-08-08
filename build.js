@@ -23,8 +23,14 @@ var FILES = ['index.html', 'sw.js', 'manifest.json', 'icon.svg', 'icon-512.png']
 
 if (!fs.existsSync(OUT)) fs.mkdirSync(OUT);
 
-var html = fs.readFileSync(path.join(SRC, 'index.html'));
-var version = crypto.createHash('md5').update(html).digest('hex').slice(0, 8);
+// 哈希覆盖全部发布文件，不能只取 index.html。
+// sw.js 对图标等静态资源走 cache-first，缓存名又由这个哈希决定：
+// 只哈希 index.html 的话，「只换图标、不动页面」会算出同一个版本号，
+// 新 SW 不会安装，老用户永远拿着旧图标 —— 静默失效，很难察觉。
+// 读的都是 www/ 源文件（占位符还是 dev），所以值稳定、不产生自引用。
+var hash = crypto.createHash('md5');
+FILES.forEach(function(f) { hash.update(fs.readFileSync(path.join(SRC, f))); });
+var version = hash.digest('hex').slice(0, 8);
 
 var BUILD_TAG = /<span class="build"([^>]*)>[^<]*<\/span>/;
 
