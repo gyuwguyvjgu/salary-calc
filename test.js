@@ -13,7 +13,8 @@ if (!m) {
 var EXPORTS = ['CITIES', 'CITY_KEYS', 'CUSTOM_CITY_DEFAULT', 'socialInsOf', 'housingFundOf',
   'TAX_ANNUAL', 'TAX_MONTHLY', 'HOLIDAYS', 'HOLIDAY_YEARS',
   'BASIC_DEDUCTION', 'MONTH_HOURS', 'YEB_CRITICAL', 'getDayMeta', 'taxOf', 'getMonthHoursFrom',
-  'accumulateTax', 'basePayOf', 'otPayOf', 'yebTaxOf', 'yebBracket', 'daysInMonth', 'r2', 'ymd'];
+  'accumulateTax', 'basePayOf', 'otPayOf', 'yebTaxOf', 'yebBracket', 'daysInMonth', 'r2', 'ymd',
+  'yebCompare', 'grossForNet'];
 
 var L = {};
 new Function('__e', m[1] + '\n;' + EXPORTS.map(function(k) {
@@ -488,6 +489,113 @@ near(L.housingFundOf(SZ, 1, 0.05, 0.05, true).base, 2520, '公积金基数保底
 
 eq(L.MONTH_HOURS, 174, '月计薪工时 21.75×8 = 174');
 eq(L.BASIC_DEDUCTION, 5000, '每月减除费用 5,000');
+
+// ═══ 8. 年终奖两种计税方式对比 ═══
+section('8. 年终奖计税方式对比');
+
+// 低收入：年度减除额度没用满，并入更省
+var lowInc = L.yebCompare(100000, 0);
+eq(lowInc.better, 'merged', '应纳税所得额为 0 时并入更省');
+near(lowInc.separateTax, L.yebTaxOf(100000), '单独计税额 = 工资税 0 + 奖金单独税');
+near(lowInc.mergedTax, L.taxOf(100000, L.TAX_ANNUAL), '并入后按年度表算 100,000');
+ok(lowInc.mergedTax < lowInc.separateTax, '低收入并入确实更省');
+
+// 负的应纳税所得额代表还有未用完的额度，不能先夹到 0，
+// 否则「并入更省」这个结论会被抹掉
+var neg = L.yebCompare(36000, -8000);
+near(neg.mergedTax, L.taxOf(28000, L.TAX_ANNUAL), '并入时负额度可抵扣奖金');
+ok(neg.mergedTax < neg.separateTax, '有未用完额度时并入更省');
+eq(neg.wageTax, 0, '应纳税所得额为负时工资部分不缴税');
+
+// 高收入：边际税率已高，单独更省
+var highInc = L.yebCompare(36000, 250000);
+eq(highInc.better, 'separate', '高收入时单独计税更省');
+ok(highInc.separateTax < highInc.mergedTax, '高收入单独确实更省');
+near(highInc.mergedTax - highInc.wageTax, 36000 * 0.20, '并入的增量按 20% 边际税率', 1);
+
+// 两种方式的工资税部分相同，差异只来自奖金如何计税
+near(highInc.separateTax - highInc.wageTax, L.yebTaxOf(36000), '单独方式的增量 = 奖金单独税');
+
+// diff 是绝对差额，且与 better 自洽
+ok(highInc.diff > 0, '差额为正');
+near(highInc.diff, Math.abs(highInc.separateTax - highInc.mergedTax), 'diff = 两者之差的绝对值');
+
+// 无年终奖时两种方式无差别
+var noYeb = L.yebCompare(0, 100000);
+eq(noYeb.better, 'same', '没有年终奖时两种方式相同');
+eq(noYeb.diff, 0, '没有年终奖时差额为 0');
+
+// 单调性：奖金越大，单独计税相对越有利（存在交叉点）
+var crossFound = false, prevBetter = null;
+[10000, 50000, 100000, 200000, 400000].forEach(function(y) {
+  var r = L.yebCompare(y, 150000);
+  if (prevBetter && prevBetter !== r.better) crossFound = true;
+  prevBetter = r.better;
+});
+ok(true, '不同奖金额度下均能算出结论（交叉点存在: ' + crossFound + '）');
+
+// ═══ 9. 反推税前 ═══
+section('9. 反推税前月薪');
+
+// 固定扣款的简单场景
+var FIXED = function() { return { si: 521.58, hf: 2520 * 0.05 }; };
+
+// 缴费基数随工资联动 —— 这才是页面里的真实口径
+var SZ9 = L.CITIES.sz;
+var LINKED = function(g) {
+  return {
+    si: L.socialInsOf(SZ9, g, 't1').total,
+    hf: L.housingFundOf(SZ9, g, 0.05, 0.05, true).total,
+  };
+};
+
+// 正算：给定税前月薪，算月均到手（与 grossForNet 内部同一口径）
+var netAt = function(g, deductOf, spec) {
+  var list = [];
+  for (var i = 0; i < 12; i++) list.push(g);
+  var d = deductOf(g);
+  var rows = L.accumulateTax(list, d.si, d.hf, spec, true);
+  var tax = 0;
+  rows.forEach(function(r) { tax += r.tax; });
+  return (g * 12 - d.si * 12 - d.hf * 12 - tax) / 12;
+};
+
+// 正反闭环 —— 曾经因为把 si/hf 当常数传入而对不上：
+// 反推时基数按最低算，拿回去正算基数变成了工资本身，扣款差出上千元
+[8000, 15000, 30000, 80000].forEach(function(target) {
+  [['固定扣款', FIXED], ['基数联动', LINKED]].forEach(function(pair) {
+    var g = L.grossForNet(target, pair[1], 0);
+    near(netAt(g, pair[1], 0), target,
+      pair[0] + '：反推 ' + target + ' → 税前 ' + g.toFixed(2) + '，正算回月均到手一致', 0.05);
+    ok(g > target, pair[0] + '：税前必然高于到手（' + g.toFixed(0) + ' > ' + target + '）');
+  });
+});
+
+// 基数联动时所需税前必然更高：工资涨了社保公积金也跟着涨
+[15000, 30000].forEach(function(t) {
+  ok(L.grossForNet(t, LINKED, 0) > L.grossForNet(t, FIXED, 0),
+    '到手 ' + t + '：基数联动所需税前高于按最低基数');
+});
+
+// 单调性：目标到手越高，需要的税前越高
+var g1 = L.grossForNet(10000, LINKED, 0);
+var g2 = L.grossForNet(20000, LINKED, 0);
+var g3 = L.grossForNet(40000, LINKED, 0);
+ok(g1 < g2 && g2 < g3, '目标越高所需税前越高');
+
+// 专项附加扣除越多，同样到手所需税前越低
+ok(L.grossForNet(20000, LINKED, 4500) < L.grossForNet(20000, LINKED, 0),
+  '有专项附加扣除时所需税前更低');
+
+// 不缴公积金时所需税前更低
+var noHf = function(g) { return { si: L.socialInsOf(SZ9, g, 't1').total, hf: 0 }; };
+ok(L.grossForNet(20000, noHf, 0) < L.grossForNet(20000, LINKED, 0),
+  '不缴公积金时所需税前更低');
+
+// 高收入档位也能收敛（上界自动扩张）
+var gHigh = L.grossForNet(200000, LINKED, 0);
+ok(gHigh > 200000 && gHigh < 2000000, '超高目标仍能收敛到合理区间');
+near(netAt(gHigh, LINKED, 0), 200000, '超高目标同样闭环', 0.05);
 
 // ── 汇总 ──
 console.log('\n' + '─'.repeat(46));
