@@ -109,7 +109,8 @@
 
   .row-main { flex: 1; min-width: 0; }
   .row-desc { margin-top: 2px; font-size: 11.5px; color: var(--label-3); }
-  .row-label { flex-shrink: 0; font-size: 15px; color: var(--label); }
+  /* 输入框现在有固定宽度，标签得能压缩，否则窄屏上会把输入框挤出行外 */
+  .row-label { min-width: 0; font-size: 15px; color: var(--label); }
   .row-label .sub { margin-left: 5px; font-size: 11.5px; color: var(--label-3); }
   .row-value {
     margin-left: auto; text-align: right; font-size: 15px; color: var(--label-2);
@@ -150,14 +151,30 @@
   .row-tap:active { background: #eaeaef; }
   .row-tap .chev { margin-left: 6px; font-size: 9px; font-style: normal; color: var(--label-3); }
 
-  /* 行内输入：右对齐、无边框，看起来就是一段可编辑的数值 */
+  /* 行内输入：给底色 + 内缩，让它明显区别于同样右对齐的只读数值行。
+     纯无边框虽然更"干净"，但和展示行长得一样，用户看不出可以点。 */
   .row-input {
-    flex: 1; min-width: 0; border: none; background: transparent; outline: none;
+    flex: 1; min-width: 0; max-width: 168px; margin-left: auto;
+    padding: 7px 11px; border: 1px solid var(--sep-soft); border-radius: 9px;
+    background: var(--bg); outline: none;
     text-align: right; font-family: inherit; font-size: 15px; color: var(--label);
     font-variant-numeric: tabular-nums;
+    transition: border-color .15s, background-color .15s;
   }
   .row-input::placeholder { color: var(--label-3); }
-  .row-input:disabled { color: var(--label-3); -webkit-text-fill-color: var(--label-3); }
+  .row-input:focus { border-color: var(--blue); background: #fff; }
+  .row-input:disabled {
+    border-color: transparent; background: transparent;
+    color: var(--label-3); -webkit-text-fill-color: var(--label-3);
+  }
+  /* 金额输入框前置货币符号，进一步和"个/比例"这类输入区分开。
+     包裹层自己就是输入框的尺寸，¥ 定位在它左内侧，不依赖魔法数字。 */
+  .row-money { position: relative; width: 168px; margin-left: auto; flex-shrink: 0; }
+  .row-money .row-input { width: 100%; max-width: none; margin-left: 0; padding-left: 26px; }
+  .row-money::before {
+    content: '¥'; position: absolute; left: 11px; top: 50%; transform: translateY(-50%);
+    font-size: 14px; color: var(--label-3); pointer-events: none;
+  }
   .row-select {
     flex: 1; min-width: 0; border: none; outline: none; cursor: pointer;
     background-color: transparent; font-family: inherit; font-size: 15px; color: var(--blue);
@@ -397,6 +414,8 @@
     .hero { padding: 14px 13px 0; }
     .hero .row { margin: 0 -13px; }
     .hero-value { font-size: 30px; }
+    .row-input { max-width: 128px; padding: 7px 9px; }
+    .row-money { width: 128px; }
     .cal-cell { min-height: 52px; }
     .cal-cell input { font-size: 12px; }
     .ratio-bar { width: 88px; }
@@ -550,13 +569,13 @@
       <div class="group-title">工资组成</div>
       <div class="card list icons">
         <div class="row"><span class="row-icon ic-blue">薪</span><span class="row-label">底薪</span>
-          <input type="number" class="row-input" id="baseSalary" placeholder="0" step="0.01" min="0" oninput="calc()"></div>
+          <span class="row-money"><input type="number" inputmode="decimal" class="row-input" id="baseSalary" placeholder="0.00" step="0.01" min="0" oninput="calc()"></span></div>
         <div class="row"><span class="row-icon ic-orange">奖</span><span class="row-label">绩效奖金</span>
-          <input type="number" class="row-input" id="bonus" placeholder="0" step="0.01" min="0" oninput="calc()"></div>
+          <span class="row-money"><input type="number" inputmode="decimal" class="row-input" id="bonus" placeholder="0.00" step="0.01" min="0" oninput="calc()"></span></div>
         <div class="row"><span class="row-icon ic-teal">补</span><span class="row-label">补贴</span>
-          <input type="number" class="row-input" id="subsidy" placeholder="0" step="0.01" min="0" oninput="calc()"></div>
+          <span class="row-money"><input type="number" inputmode="decimal" class="row-input" id="subsidy" placeholder="0.00" step="0.01" min="0" oninput="calc()"></span></div>
         <div class="row"><span class="row-icon ic-pink">年</span><span class="row-label">年终奖</span>
-          <input type="number" class="row-input" id="yearEndBonus" placeholder="0" step="0.01" min="0" oninput="calc()"></div>
+          <span class="row-money"><input type="number" inputmode="decimal" class="row-input" id="yearEndBonus" placeholder="0.00" step="0.01" min="0" oninput="calc()"></span></div>
       </div>
       <div class="group-foot">
         底薪满勤全额，缺勤按 底薪÷21.75÷8 扣。奖金与补贴是每月默认值，可在「全年逐月明细」里按月覆盖。年终奖单独计税，不并入累计预扣。
@@ -566,45 +585,55 @@
 
     <!-- 社保公积金 -->
     <div class="group">
-      <div class="group-title">社保 · 公积金</div>
+      <div class="group-title">社保 · 公积金<span id="cityEffective"></span></div>
       <div class="card list icons">
+        <div class="row"><span class="row-icon ic-indigo">城</span><span class="row-label">参保城市</span>
+          <select class="row-select" id="cityPick" onchange="onCityChange()"></select></div>
+        <div class="row" id="medTierRow"><span class="row-icon ic-red">医</span><span class="row-label">医保档次</span>
+          <select class="row-select" id="medTier" onchange="calc()"></select></div>
+        <div class="row"><span class="row-icon ic-teal">金</span><span class="row-label">缴纳公积金</span>
+          <select class="row-select" id="hfOn" onchange="onHfToggle()">
+            <option value="1">缴纳</option>
+            <option value="0">不缴纳</option>
+          </select></div>
+
         <div class="row row-tap" onclick="toggleBox('siBody','siIcon')">
-          <span class="row-icon ic-indigo">保</span>
-          <span class="row-label">缴费基数</span>
-          <span class="row-value">社保最低 · 公积金 3,000 × 12%<i class="chev" id="siIcon">▼</i></span>
+          <span class="row-icon ic-gray">调</span>
+          <span class="row-label">基数与比例</span>
+          <span class="row-value" id="siSummary">按本人工资<i class="chev" id="siIcon">▼</i></span>
         </div>
         <div id="siBody" style="display:none;">
+          <div class="row cus-only"><span class="row-icon ic-indigo">养</span><span class="row-label">养老个人费率<span class="sub">%</span></span>
+            <input type="number" inputmode="decimal" class="row-input" id="cusPension" placeholder="8" step="0.1" min="0" max="100" oninput="calc()"></div>
+          <div class="row cus-only"><span class="row-icon ic-red">医</span><span class="row-label">医疗个人费率<span class="sub">%</span></span>
+            <input type="number" inputmode="decimal" class="row-input" id="cusMedical" placeholder="2" step="0.1" min="0" max="100" oninput="calc()"></div>
+          <div class="row cus-only"><span class="row-icon ic-orange">失</span><span class="row-label">失业个人费率<span class="sub">%</span></span>
+            <input type="number" inputmode="decimal" class="row-input" id="cusUnemp" placeholder="0.5" step="0.1" min="0" max="100" oninput="calc()"></div>
           <div class="row"><span class="row-icon ic-indigo">社</span><span class="row-label">社保基数</span>
-            <input type="number" class="row-input" id="siBase" placeholder="按最低" step="0.01" min="0" oninput="calc()"></div>
-          <div class="row"><span class="row-icon ic-teal">金</span><span class="row-label">公积金基数</span>
-            <input type="number" class="row-input" id="hfBase" placeholder="默认 3,000" step="0.01" min="0" oninput="calc()"></div>
-          <div class="row"><span class="row-icon ic-gray">比</span><span class="row-label">公积金个人比例</span>
-            <select class="row-select" id="hfRate" onchange="calc()">
-              <option value="0.05">5%</option>
-              <option value="0.06">6%</option>
-              <option value="0.07">7%</option>
-              <option value="0.08">8%</option>
-              <option value="0.09">9%</option>
-              <option value="0.10">10%</option>
-              <option value="0.11">11%</option>
-              <option value="0.12">12%</option>
-            </select></div>
-          <div class="row"><span class="row-icon ic-gray">司</span><span class="row-label">公积金公司比例</span>
-            <select class="row-select" id="hfCompanyRate" onchange="calc()">
-              <option value="0.05">5%</option>
-              <option value="0.06">6%</option>
-              <option value="0.07">7%</option>
-              <option value="0.08">8%</option>
-              <option value="0.09">9%</option>
-              <option value="0.10">10%</option>
-              <option value="0.11">11%</option>
-              <option value="0.12">12%</option>
-            </select></div>
+            <input type="number" inputmode="decimal" class="row-input" id="siBase" placeholder="按本人工资" step="0.01" min="0" oninput="calc()"></div>
+          <div class="row" id="hfBaseRow"><span class="row-icon ic-teal">金</span><span class="row-label">公积金基数</span>
+            <input type="number" inputmode="decimal" class="row-input" id="hfBase" placeholder="按本人工资" step="0.01" min="0" oninput="calc()"></div>
+          <div class="row" id="hfRateRow"><span class="row-icon ic-gray">比</span><span class="row-label">公积金个人比例</span>
+            <select class="row-select" id="hfRate" onchange="calc()"></select></div>
+          <div class="row" id="hfCoRateRow"><span class="row-icon ic-gray">司</span><span class="row-label">公积金公司比例</span>
+            <select class="row-select" id="hfCompanyRate" onchange="calc()"></select></div>
           <div class="row row-block"><div class="si-detail" id="siDetail"></div></div>
         </div>
       </div>
+      <div class="group-foot" id="siFoot"></div>
+    </div>
+
+    <!-- 公司成本 -->
+    <div class="group">
+      <div class="group-title">公司为你支出<span>不进你的工资</span></div>
+      <div class="card list icons">
+        <div class="row"><span class="row-icon ic-blue">薪</span><span class="row-label">税前月薪</span><span class="row-value dark" id="rowCoGross">¥0.00</span></div>
+        <div class="row"><span class="row-icon ic-indigo">保</span><span class="row-label">社保单位部分<span class="sub">含工伤</span></span><span class="row-value dark" id="rowCoSi">¥0.00</span></div>
+        <div class="row"><span class="row-icon ic-teal">金</span><span class="row-label">公积金单位部分</span><span class="row-value dark" id="rowCoHf">¥0.00</span></div>
+        <div class="row strong"><span class="row-icon ic-green">总</span><span class="row-label">用人成本合计</span><span class="row-value pos" id="rowCoTotal">¥0.00</span></div>
+      </div>
       <div class="group-foot">
-        社保留空按最低基数：养老 4,775~27,549、医疗一档 6,727~33,633、失业 2,520~44,265，各险种分别在自己的上下限内取值。公积金留空按 3,000 算，法定下限 2,520、上限 48,471。
+        工伤费率按行业分 0.2%~1.4% 八档，这里统一按 0.4% 估算，实际以单位核定为准。生育保险多数城市已并入医保。
       </div>
     </div>
 
@@ -619,9 +648,9 @@
         </div>
         <div id="deductionsBody" style="display:none;">
           <div class="row"><span class="row-icon ic-blue">教</span><span class="row-label">子女教育</span>
-            <input type="number" class="row-input" id="dedChildEdu" placeholder="0 个" step="1" min="0" max="20" oninput="calc()"></div>
+            <input type="number" inputmode="numeric" class="row-input" id="dedChildEdu" placeholder="0 个" step="1" min="0" max="20" oninput="calc()"></div>
           <div class="row"><span class="row-icon ic-pink">幼</span><span class="row-label">3 岁以下婴幼儿照护</span>
-            <input type="number" class="row-input" id="dedInfant" placeholder="0 个" step="1" min="0" max="20" oninput="calc()"></div>
+            <input type="number" inputmode="numeric" class="row-input" id="dedInfant" placeholder="0 个" step="1" min="0" max="20" oninput="calc()"></div>
           <div class="row"><span class="row-icon ic-purple">学</span><span class="row-label">继续教育</span>
             <select class="row-select" id="dedContEdu" onchange="calc()">
               <option value="0">无</option>
@@ -730,20 +759,140 @@
 //  参数区（截至 2026-08 现行口径）
 // ═══════════════════════════════════════════════════════════
 
-// 深圳社保个人缴费：费率与基数上下限
-// 工伤、生育、大病保险个人不缴费，故不列入
-var SOCIAL_INS = [
-  { key: 'pension',      name: '养老',     rate: 0.08,  min: 4775, max: 27549 },
-  { key: 'medical',      name: '医疗一档', rate: 0.02,  min: 6727, max: 33633 },
-  { key: 'unemployment', name: '失业',     rate: 0.002, min: 2520, max: 44265 },
-];
+// ── 各城市社保 / 公积金参数 ──
+//
+// 结构约定：
+//   si[]          个人需缴的险种。工伤、生育个人不缴，只出现在 company 侧。
+//                 每项自带 min/max —— 深圳、广州各险种的基数区间互不相同，
+//                 北京、上海虽然三险共用一个区间，也照样逐项写出，
+//                 好让取数逻辑只有一条路径，不必为"统一基数"开特例。
+//   extra         按人头固定加收的部分（北京医保每月多收 3 元大病统筹）。
+//   medTiers      仅深圳的职工医保分档；其余城市为 null，UI 据此隐藏档位选择。
+//   hf            公积金基数上下限与比例可选区间。上海是 5%~7%，其余 5%~12%。
+//   effective     该组数字的生效期，直接显示给用户，避免把过期数据当现行的用。
+//
+// ⚠️ 社保基数每年 7 月随社平工资调整、医保基数部分城市按自然年度调整。
+//    截至 2026-08，北京与上海的 2026 年度（2026.7 起）上下限尚未正式公布，
+//    这两个城市暂用仍在执行的 2025 年度口径，effective 里已注明。
+var CITIES = {
+  sz: {
+    name: '深圳',
+    effective: '养老/失业 2025.7 起 · 医疗 2026 自然年度',
+    si: [
+      { key: 'pension',      name: '养老', rate: 0.08,  company: 0.16,  min: 4775, max: 27549 },
+      { key: 'medical',      name: '医疗', rate: 0.02,  company: 0.06,  min: 6727, max: 33633 },
+      { key: 'unemployment', name: '失业', rate: 0.002, company: 0.008, min: 2520, max: 44265 },
+      { key: 'injury',       name: '工伤', rate: 0,     company: 0.004, min: 2520, max: 44265 },
+    ],
+    // 一档按本人工资，二档个人费率低但报销范围窄；三档已并入二档口径
+    medTiers: [
+      { key: 't1', name: '一档', rate: 0.02,  company: 0.06  },
+      { key: 't2', name: '二档', rate: 0.005, company: 0.015 },
+    ],
+    hf: { min: 2520, max: 48471, rateMin: 0.05, rateMax: 0.12 },
+  },
 
-// min/max 是法定上下限（用户填了超出范围的值就夹到这里），
-// defaultBase 是「留空时按多少算」—— 单位实际按 3,000 缴，所以默认取 3,000 而非下限。
-// 两者不是一回事，别把 min 改成 3000：2,520 是深圳最低工资，是法规下限。
-// defaultRate 12% / companyRate 6% 取自实际缴存比例（见 gh-pages 的 b40c976）。
-// 公司缴纳部分不从工资里扣，只影响公积金账户入账，不参与到手金额。
-var HF = { min: 2520, max: 48471, defaultBase: 3000, defaultRate: 0.12, defaultCompanyRate: 0.06 };
+  gz: {
+    name: '广州',
+    effective: '养老/失业 2025.7 起 · 医疗 2026 自然年度',
+    si: [
+      { key: 'pension',      name: '养老', rate: 0.08,  company: 0.16,  min: 5510, max: 27549 },
+      { key: 'medical',      name: '医疗', rate: 0.02,  company: 0.06,  min: 6234, max: 31170 },
+      { key: 'unemployment', name: '失业', rate: 0.002, company: 0.008, min: 2500, max: 41112 },
+      { key: 'injury',       name: '工伤', rate: 0,     company: 0.004, min: 2500, max: 41112 },
+    ],
+    medTiers: null,
+    hf: { min: 2500, max: 41697, rateMin: 0.05, rateMax: 0.12 },
+  },
+
+  bj: {
+    name: '北京',
+    effective: '2025 年度（2026 年度上下限尚未公布）',
+    si: [
+      { key: 'pension',      name: '养老', rate: 0.08,  company: 0.16,  min: 7162, max: 35811 },
+      // 医保个人在 2% 之外每月固定再收 3 元大病统筹，与基数无关
+      { key: 'medical',      name: '医疗', rate: 0.02,  company: 0.09,  min: 7162, max: 35811, extra: 3 },
+      { key: 'unemployment', name: '失业', rate: 0.005, company: 0.005, min: 7162, max: 35811 },
+      { key: 'injury',       name: '工伤', rate: 0,     company: 0.004, min: 7162, max: 35811 },
+    ],
+    medTiers: null,
+    hf: { min: 2540, max: 35811, rateMin: 0.05, rateMax: 0.12 },
+  },
+
+  sh: {
+    name: '上海',
+    effective: '2025 年度（2026 年度上下限尚未公布）',
+    si: [
+      { key: 'pension',      name: '养老', rate: 0.08,  company: 0.16,  min: 7460, max: 37302 },
+      { key: 'medical',      name: '医疗', rate: 0.02,  company: 0.09,  min: 7460, max: 37302 },
+      { key: 'unemployment', name: '失业', rate: 0.005, company: 0.005, min: 7460, max: 37302 },
+      { key: 'injury',       name: '工伤', rate: 0,     company: 0.004, min: 7460, max: 37302 },
+    ],
+    medTiers: null,
+    // 上海公积金比例上限是 7%，不是其余城市的 12%
+    hf: { min: 2740, max: 37302, rateMin: 0.05, rateMax: 0.07 },
+  },
+};
+
+var CITY_KEYS = ['sz', 'gz', 'bj', 'sh'];
+
+// 自定义城市：不预置任何数字，全部由用户填。给一组温和的初值，
+// 免得留空时算出 0 让人以为坏了。
+var CUSTOM_CITY_DEFAULT = {
+  name: '自定义',
+  effective: '由你自己填写',
+  si: [
+    { key: 'pension',      name: '养老', rate: 0.08,  company: 0.16,  min: 0, max: 999999 },
+    { key: 'medical',      name: '医疗', rate: 0.02,  company: 0.06,  min: 0, max: 999999 },
+    { key: 'unemployment', name: '失业', rate: 0.005, company: 0.005, min: 0, max: 999999 },
+    { key: 'injury',       name: '工伤', rate: 0,     company: 0.004, min: 0, max: 999999 },
+  ],
+  medTiers: null,
+  hf: { min: 0, max: 999999, rateMin: 0.05, rateMax: 0.12 },
+};
+
+// 按城市与基数算社保。base 为本人工资，逐险种夹到各自上下限后计费。
+// medTierKey 只对有分档的城市（深圳）生效，用它替换医疗那一项的费率。
+function socialInsOf(city, base, medTierKey) {
+  var items = [], personal = 0, company = 0;
+
+  for (var i = 0; i < city.si.length; i++) {
+    var s = city.si[i];
+    var rate = s.rate, compRate = s.company;
+
+    if (s.key === 'medical' && city.medTiers) {
+      var t = null;
+      for (var j = 0; j < city.medTiers.length; j++) {
+        if (city.medTiers[j].key === medTierKey) { t = city.medTiers[j]; break; }
+      }
+      if (!t) t = city.medTiers[0];
+      rate = t.rate; compRate = t.company;
+    }
+
+    var b = clamp(base, s.min, s.max);
+    var extra = s.extra || 0;
+    var mine = r2(b * rate + (rate > 0 ? extra : 0));
+    var theirs = r2(b * compRate + extra);
+
+    personal += mine;
+    company += theirs;
+    items.push({ key: s.key, name: s.name, base: b, rate: rate, amount: mine, company: theirs });
+  }
+
+  return { items: items, total: r2(personal), company: r2(company) };
+}
+
+// 公积金。enabled 为 false 时全部归零（不少小公司不缴）。
+// 个人与公司可以是不同比例，两边都进职工的公积金账户。
+function housingFundOf(city, base, rate, companyRate, enabled) {
+  if (!enabled) return { base: 0, rate: 0, companyRate: 0, total: 0, company: 0 };
+  var b = clamp(base, city.hf.min, city.hf.max);
+  return {
+    base: b, rate: rate, companyRate: companyRate,
+    total: r2(b * rate),
+    company: r2(b * companyRate),
+  };
+}
 
 // 预扣率表一：居民个人工资薪金累计预扣预缴适用（年度口径）
 var TAX_ANNUAL = [
@@ -983,12 +1132,22 @@ function isMonthFilled(y, m) {
   return false;
 }
 
-var FORM_FIELDS = ['baseSalary', 'bonus', 'subsidy', 'yearEndBonus', 'siBase', 'hfBase',
-  'hfRate', 'hfCompanyRate',
+// cityPick 不在其中：参保城市是跨年度的设定，单独存 CITY_KEY，
+// 放进按年存档的表单里会导致切年度时城市莫名其妙变回去。
+var FORM_FIELDS = ['baseSalary', 'bonus', 'subsidy', 'yearEndBonus',
+  'medTier', 'hfOn', 'siBase', 'hfBase', 'hfRate', 'hfCompanyRate',
+  'cusPension', 'cusMedical', 'cusUnemp',
   'dedChildEdu', 'dedInfant', 'dedContEdu', 'dedHousing', 'dedElderly'];
 
-// 首次打开（该年度还没有存档）时的初始值，其余字段一律留空
-var FORM_DEFAULTS = { hfRate: '0.12', hfCompanyRate: '0.06' };
+// 城市选择是跨年度的设定，不该跟着「计税年度」一起切换，单独存
+var CITY_KEY = 'salary-city';
+
+// 首次打开（该年度还没有存档）时的初始值，其余字段一律留空。
+// 比例给法定下限 5%：这是全国通行的最低档，比猜一个高比例安全。
+var FORM_DEFAULTS = {
+  medTier: 't1', hfOn: '1', hfRate: '0.05', hfCompanyRate: '0.05',
+  cusPension: '8', cusMedical: '2', cusUnemp: '0.5',
+};
 
 // 逐月覆盖：{ "3": {bonus: 5000, subsidy: 300}, ... }
 var monthOverrides = {};
@@ -1031,28 +1190,49 @@ function getMonthHours(y, m) {
 function num(id) { return parseFloat(document.getElementById(id).value) || 0; }
 function intv(id) { return parseInt(document.getElementById(id).value, 10) || 0; }
 
+function selVal(id) {
+  var el = document.getElementById(id);
+  return el ? el.value : '';
+}
+
+// 自定义城市：费率由用户手填（单位是百分数），上下限不设限制，
+// 基数直接用本人工资或手填值 —— 外地用户填一次存下来就能照常用。
+function readCustomCity() {
+  var c = JSON.parse(JSON.stringify(CUSTOM_CITY_DEFAULT));
+  var typed = { pension: num('cusPension'), medical: num('cusMedical'), unemployment: num('cusUnemp') };
+  c.si.forEach(function(s) {
+    // 留空时保留 CUSTOM_CITY_DEFAULT 里的费率，不要落到 0 ——
+    // 否则刚切到「自定义」还没填，社保会静默变成 0，看着像坏了
+    if (typed.hasOwnProperty(s.key) && typed[s.key] > 0) s.rate = typed[s.key] / 100;
+  });
+  return c;
+}
+
+function currentCity() {
+  var key = selVal('cityPick');
+  if (key === 'custom') return readCustomCity();
+  return CITIES[key] || CITIES.sz;
+}
+
+// 社保与公积金的缴费基数默认取「固定月收入」= 底薪 + 默认奖金 + 默认补贴。
+// 刻意不含加班费：缴费基数一年只核定一次，而加班费逐月浮动，
+// 把它算进去会让社保随加班多少上下抖动，跟工资条对不上。
+function wageBase() {
+  return num('baseSalary') + num('bonus') + num('subsidy');
+}
+
 function getSocialIns() {
   var custom = num('siBase');
-  var items = [], total = 0;
-  SOCIAL_INS.forEach(function(s) {
-    var base = custom > 0 ? clamp(custom, s.min, s.max) : s.min;
-    var amt = r2(base * s.rate);
-    total += amt;
-    items.push(s.name + ' ' + fmt(base) + '×' + (s.rate * 100).toFixed(1) + '%=' + fmt(amt));
-  });
-  return { total: r2(total), items: items };
+  return socialInsOf(currentCity(), custom > 0 ? custom : wageBase(), selVal('medTier'));
 }
 
 function getHousingFund() {
+  var city = currentCity();
   var custom = num('hfBase');
-  var base = custom > 0 ? clamp(custom, HF.min, HF.max) : HF.defaultBase;
-  var rate = parseFloat(document.getElementById('hfRate').value) || HF.defaultRate;
-  var compRate = parseFloat(document.getElementById('hfCompanyRate').value) || HF.defaultCompanyRate;
+  var rate = parseFloat(selVal('hfRate')) || city.hf.rateMin;
+  var comp = parseFloat(selVal('hfCompanyRate')) || city.hf.rateMin;
   // total 只含个人部分 —— 它要参与扣款与个税计算，公司部分绝不能混进来
-  return {
-    total: r2(base * rate), base: base, rate: rate,
-    compRate: compRate, company: r2(base * compRate)
-  };
+  return housingFundOf(city, custom > 0 ? custom : wageBase(), rate, comp, selVal('hfOn') !== '0');
 }
 
 // 专项附加扣除的月标准合计
@@ -1166,20 +1346,41 @@ function calc() {
   if (h.ot2 > 0) otParts.push('休息日 ' + h.ot2.toFixed(1) + 'h');
   if (h.ot3 > 0) otParts.push('法定假 ' + h.ot3.toFixed(1) + 'h');
   document.getElementById('otNote').textContent = otParts.length ? '（' + otParts.join(' · ') + '）' : '';
-  document.getElementById('siNote').textContent = '（' + fmt(siInfo.total) + '/月）';
-  document.getElementById('hfNote').textContent =
-    '（基数 ' + fmt0(hfInfo.base) + ' × ' + (hfInfo.rate * 100).toFixed(0) + '%）';
-  document.getElementById('siDetail').innerHTML = siInfo.items.join('<br>') +
-    '<br>合计 ' + fmt(siInfo.total) + ' 元/月';
+  var city = currentCity();
+  document.getElementById('siNote').textContent = '（' + city.name + ' ' + fmt(siInfo.total) + '/月）';
+  document.getElementById('hfNote').textContent = hfInfo.total > 0
+    ? '（基数 ' + fmt0(hfInfo.base) + ' × ' + (hfInfo.rate * 100).toFixed(0) + '%）'
+    : '（未缴纳）';
+
+  // 逐险种明细：基数各不相同，所以每行都把自己的基数写出来
+  var siLines = siInfo.items.map(function(it) {
+    if (it.rate <= 0) return '';   // 工伤个人不缴，不占用户视线
+    return it.name + ' ' + fmt0(it.base) + ' × ' + (it.rate * 100).toFixed(2).replace(/\.?0+$/, '') +
+           '% = ' + fmt(it.amount);
+  }).filter(Boolean);
+  document.getElementById('siDetail').innerHTML =
+    siLines.join('<br>') + '<br>个人合计 ' + fmt(siInfo.total) + ' 元/月' +
+    '<br><span style="color:var(--label-3)">单位另缴约 ' + fmt(siInfo.company) + ' 元/月 · ' + city.effective + '</span>';
 
   // ── 公积金账户（公司部分只做展示，不参与扣款与个税）──
-  document.getElementById('hfPersonalNote').textContent =
-    '（' + (hfInfo.rate * 100).toFixed(0) + '% × ' + fmt0(hfInfo.base) + '）';
-  document.getElementById('hfCompanyNote').textContent =
-    '（' + (hfInfo.compRate * 100).toFixed(0) + '% × ' + fmt0(hfInfo.base) + '）';
+  document.getElementById('hfPersonalNote').textContent = hfInfo.total > 0
+    ? '（' + (hfInfo.rate * 100).toFixed(0) + '% × ' + fmt0(hfInfo.base) + '）' : '';
+  document.getElementById('hfCompanyNote').textContent = hfInfo.company > 0
+    ? '（' + (hfInfo.companyRate * 100).toFixed(0) + '% × ' + fmt0(hfInfo.base) + '）' : '';
   document.getElementById('rowHfPersonal').textContent = '¥' + fmt(hfInfo.total);
   document.getElementById('rowHfCompany').textContent  = '¥' + fmt(hfInfo.company);
   document.getElementById('rowHfTotal').textContent    = '¥' + fmt(hfInfo.total + hfInfo.company);
+
+  // ── 公司为你花的钱（社保单位部分 + 公积金单位部分）──
+  document.getElementById('rowCoGross').textContent = '¥' + fmt(cur.gross);
+  document.getElementById('rowCoSi').textContent    = '¥' + fmt(siInfo.company);
+  document.getElementById('rowCoHf').textContent    = '¥' + fmt(hfInfo.company);
+  document.getElementById('rowCoTotal').textContent = '¥' + fmt(cur.gross + siInfo.company + hfInfo.company);
+
+  document.getElementById('siSummary').innerHTML =
+    (num('siBase') > 0 ? '社保 ' + fmt0(num('siBase')) : '按本人工资') +
+    (hfInfo.total > 0 ? ' · 公积金 ' + (hfInfo.rate * 100).toFixed(0) + '%' : ' · 无公积金') +
+    '<i class="chev" id="siIcon">' + (document.getElementById('siBody').style.display === 'none' ? '▼' : '▲') + '</i>';
 
   // 扣除占比：分子分母都只用当月口径，不混入年终奖
   var ratio = cur.gross > 0 ? ((cur.si + cur.hf + cur.tax) / cur.gross * 100) : 0;
@@ -1572,7 +1773,92 @@ function toggleBox(bodyId, iconId) {
   var icon = document.getElementById(iconId);
   var open = body.style.display === 'none';
   body.style.display = open ? 'block' : 'none';
-  icon.textContent = open ? '▲' : '▼';
+  if (icon) icon.textContent = open ? '▲' : '▼';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  城市
+// ═══════════════════════════════════════════════════════════
+
+function buildCitySelect() {
+  var sel = document.getElementById('cityPick');
+  var html = CITY_KEYS.map(function(k) {
+    return '<option value="' + k + '">' + CITIES[k].name + '</option>';
+  }).join('');
+  sel.innerHTML = html + '<option value="custom">自定义</option>';
+}
+
+// 公积金比例的可选范围随城市变（上海只到 7%），换城市要重建选项，
+// 并把超出新范围的旧选择拉回边界，否则 select 会变成空白。
+function buildRateSelect(id, city) {
+  var sel = document.getElementById(id);
+  var prev = parseFloat(sel.value);
+  var html = '';
+  for (var p = Math.round(city.hf.rateMin * 100); p <= Math.round(city.hf.rateMax * 100); p++) {
+    html += '<option value="' + (p / 100) + '">' + p + '%</option>';
+  }
+  sel.innerHTML = html;
+  var lo = city.hf.rateMin, hi = city.hf.rateMax;
+  sel.value = String(prev >= lo && prev <= hi ? prev : lo);
+}
+
+function buildMedTierSelect(city) {
+  var row = document.getElementById('medTierRow');
+  var sel = document.getElementById('medTier');
+  if (!city.medTiers) { row.style.display = 'none'; sel.innerHTML = ''; return; }
+  row.style.display = '';
+  sel.innerHTML = city.medTiers.map(function(t) {
+    return '<option value="' + t.key + '">' + t.name + ' · 个人 ' +
+           (t.rate * 100).toFixed(t.rate * 100 % 1 ? 1 : 0) + '%</option>';
+  }).join('');
+}
+
+// 不缴公积金时，基数与两个比例都没意义，直接收起来
+function onHfToggle() {
+  var on = selVal('hfOn') !== '0';
+  ['hfBaseRow', 'hfRateRow', 'hfCoRateRow'].forEach(function(id) {
+    document.getElementById(id).style.display = on ? '' : 'none';
+  });
+  calc();
+}
+
+function applyCity() {
+  var city = currentCity();
+  var isCustom = selVal('cityPick') === 'custom';
+
+  // 自定义费率那三行只在选了「自定义」时出现
+  var cus = document.querySelectorAll('.cus-only');
+  for (var i = 0; i < cus.length; i++) cus[i].style.display = isCustom ? '' : 'none';
+  // 自定义时默认把设置面板展开，否则用户不知道要去填费率
+  if (isCustom && document.getElementById('siBody').style.display === 'none') {
+    toggleBox('siBody', 'siIcon');
+  }
+
+  buildMedTierSelect(city);
+  buildRateSelect('hfRate', city);
+  buildRateSelect('hfCompanyRate', city);
+  document.getElementById('cityEffective').textContent = city.effective;
+
+  var foot = '基数留空时按本人工资（底薪＋奖金＋补贴，不含加班费）计算';
+  if (isCustom) {
+    foot += '。自定义模式不设基数上下限，费率请按当地口径填写。';
+  } else {
+    var lines = city.si.filter(function(s) { return s.rate > 0; }).map(function(s) {
+      return s.name + ' ' + (s.rate * 100).toFixed(2).replace(/\.?0+$/, '') + '%（' +
+             fmt0(s.min) + '~' + fmt0(s.max) + '）';
+    });
+    foot += '，再各自夹到上下限内。<br>' + city.name + '个人费率：' + lines.join('、') +
+      '。<br>公积金基数 ' + fmt0(city.hf.min) + '~' + fmt0(city.hf.max) + '，比例 ' +
+      Math.round(city.hf.rateMin * 100) + '%~' + Math.round(city.hf.rateMax * 100) + '% 可选。<br>' +
+      '数据生效期：' + city.effective + '，最终以当地社保局核定为准。';
+  }
+  document.getElementById('siFoot').innerHTML = foot;
+}
+
+function onCityChange() {
+  try { localStorage.setItem(CITY_KEY, selVal('cityPick')); } catch (e) {}
+  applyCity();
+  onHfToggle();
 }
 
 function setYearSelect(y) {
@@ -1624,7 +1910,19 @@ function syncMonthSelect() {
   ysel.value = String(calYear);
 
   syncMonthSelect();
+
+  // 城市要先于 loadForm 定下来：比例选项是按城市生成的，
+  // 顺序反了的话 loadForm 写入的比例会被随后重建的 options 冲掉。
+  buildCitySelect();
+  var savedCity = '';
+  try { savedCity = localStorage.getItem(CITY_KEY) || ''; } catch (e) {}
+  document.getElementById('cityPick').value =
+    (savedCity && (CITIES[savedCity] || savedCity === 'custom')) ? savedCity : 'sz';
+  applyCity();
+
   loadForm();
+  applyCity();          // loadForm 可能改了城市以外的字段，重算一次说明文案
+  onHfToggle();
   renderCalendar();
   calc();
 })();

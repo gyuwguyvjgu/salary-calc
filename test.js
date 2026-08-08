@@ -10,7 +10,8 @@ if (!m) {
   process.exit(1);
 }
 
-var EXPORTS = ['SOCIAL_INS', 'HF', 'TAX_ANNUAL', 'TAX_MONTHLY', 'HOLIDAYS', 'HOLIDAY_YEARS',
+var EXPORTS = ['CITIES', 'CITY_KEYS', 'CUSTOM_CITY_DEFAULT', 'socialInsOf', 'housingFundOf',
+  'TAX_ANNUAL', 'TAX_MONTHLY', 'HOLIDAYS', 'HOLIDAY_YEARS',
   'BASIC_DEDUCTION', 'MONTH_HOURS', 'YEB_CRITICAL', 'getDayMeta', 'taxOf', 'getMonthHoursFrom',
   'accumulateTax', 'basePayOf', 'otPayOf', 'yebTaxOf', 'yebBracket', 'daysInMonth', 'r2', 'ymd'];
 
@@ -80,7 +81,7 @@ ok(L.TAX_ANNUAL[1].qd !== L.TAX_MONTHLY[1].qd, '两张表未被混用（2520 ≠
 
 // ═══ 2. 累计预扣预缴 ═══
 section('2. 累计预扣预缴');
-var SI = 521.58, HFP = L.HF.min * 0.05;   // 最低基数社保 + 公积金 2520×5%
+var SI = 521.58, HFP = L.CITIES.sz.hf.min * 0.05;   // 最低基数社保 + 公积金 2520×5%
 var flat = [];
 for (var i = 0; i < 12; i++) flat.push(15000);
 var rows = L.accumulateTax(flat, SI, HFP, 0, true);
@@ -421,14 +422,70 @@ near(L.otPayOf(0, L.getMonthHoursFrom(2026, 8, { 8: 8 })), 0, '底薪为 0 时�
 
 // ═══ 7. 社保公积金参数 ═══
 section('7. 社保公积金');
-var siTotal = 0;
-L.SOCIAL_INS.forEach(function(s) { siTotal += L.r2(s.min * s.rate); });
-near(siTotal, 521.58, '最低基数下社保个人合计 521.58 元/月');
-eq(L.SOCIAL_INS.length, 3, '只有养老/医疗/失业需个人缴费（工伤生育大病个人不缴）');
-near(L.SOCIAL_INS[0].min * L.SOCIAL_INS[0].rate, 382.00, '养老 4,775×8% = 382.00');
-near(L.SOCIAL_INS[1].min * L.SOCIAL_INS[1].rate, 134.54, '医疗一档 6,727×2% = 134.54');
-near(L.SOCIAL_INS[2].min * L.SOCIAL_INS[2].rate, 5.04, '失业 2,520×0.2% = 5.04');
-eq(L.HF.min, 2520, '公积金最低基数 = 深圳最低工资 2,520（旧版写死 3,000）');
+
+// ── 7a. 深圳（回归断言，沿用改多城市之前的期望值）──
+var SZ = L.CITIES.sz;
+var szMin = L.socialInsOf(SZ, 0, 't1');     // base=0 → 每项都夹到自己的下限
+near(szMin.total, 521.58, '深圳最低基数下社保个人合计 521.58 元/月');
+near(szMin.items[0].amount, 382.00, '深圳养老 4,775×8% = 382.00');
+near(szMin.items[1].amount, 134.54, '深圳医疗一档 6,727×2% = 134.54');
+near(szMin.items[2].amount, 5.04,   '深圳失业 2,520×0.2% = 5.04');
+eq(SZ.hf.min, 2520, '深圳公积金最低基数 = 深圳最低工资 2,520');
+eq(SZ.hf.max, 48471, '深圳公积金基数上限 48,471');
+
+// ── 7b. 医保档次只换医疗那一项，其余险种不受影响 ──
+var szT2 = L.socialInsOf(SZ, 10000, 't2');
+var szT1 = L.socialInsOf(SZ, 10000, 't1');
+near(szT1.items[1].amount, 200.00, '深圳一档 10,000×2% = 200.00');
+near(szT2.items[1].amount, 50.00,  '深圳二档 10,000×0.5% = 50.00');
+near(szT1.items[0].amount, szT2.items[0].amount, '换医保档次不影响养老');
+near(szT1.items[2].amount, szT2.items[2].amount, '换医保档次不影响失业');
+ok(szT2.total < szT1.total, '二档个人合计低于一档');
+
+// ── 7c. 各险种按自己的上下限分别夹逼 ──
+var szHigh = L.socialInsOf(SZ, 999999, 't1');
+near(szHigh.items[0].amount, L.r2(27549 * 0.08),  '养老封顶按 27,549 计');
+near(szHigh.items[1].amount, L.r2(33633 * 0.02),  '医疗封顶按 33,633 计');
+near(szHigh.items[2].amount, L.r2(44265 * 0.002), '失业封顶按 44,265 计');
+
+// ── 7d. 北京医保的固定加收 ──
+var BJ = L.CITIES.bj;
+var bjMid = L.socialInsOf(BJ, 10000, null);
+near(bjMid.items[1].amount, 203.00, '北京医疗 10,000×2% + 3 元大病 = 203.00');
+near(bjMid.items[2].amount, 50.00,  '北京失业 10,000×0.5% = 50.00（深圳是 0.2%）');
+
+// ── 7e. 四个城市的结构完整性 ──
+L.CITY_KEYS.forEach(function(k) {
+  var c = L.CITIES[k];
+  ok(!!c, k + ' 城市存在');
+  ok(c.si.length >= 3, c.name + ' 至少含养老/医疗/失业三项');
+  ok(c.hf.rateMin <= c.hf.rateMax, c.name + ' 公积金比例区间有效');
+  ok(!!c.effective, c.name + ' 标注了数据生效期');
+  c.si.forEach(function(s) {
+    ok(s.min <= s.max, c.name + ' ' + s.name + ' 基数上下限有效');
+    ok(s.rate >= 0 && s.rate < 1, c.name + ' ' + s.name + ' 个人费率在合理范围');
+    ok(s.company >= 0 && s.company < 1, c.name + ' ' + s.name + ' 单位费率在合理范围');
+  });
+});
+eq(L.CITY_KEYS.length, 4, '预置 4 个城市');
+ok(L.CITIES.sh.hf.rateMax === 0.07, '上海公积金比例上限 7%，与其余城市的 12% 不同');
+
+// ── 7f. 工伤个人不缴，但计入单位成本 ──
+var szInjury = szMin.items.filter(function(i) { return i.key === 'injury'; })[0];
+eq(szInjury.amount, 0, '工伤个人缴 0');
+ok(szInjury.company > 0, '工伤计入单位缴费');
+ok(szMin.company > szMin.total, '单位缴费高于个人缴费');
+
+// ── 7g. 公积金：可关闭、两侧比例独立 ──
+var hfOff = L.housingFundOf(SZ, 10000, 0.05, 0.05, false);
+eq(hfOff.total, 0, '不缴公积金时个人为 0');
+eq(hfOff.company, 0, '不缴公积金时单位为 0');
+var hfOn = L.housingFundOf(SZ, 10000, 0.12, 0.05, true);
+near(hfOn.total, 1200, '公积金个人 10,000×12% = 1,200');
+near(hfOn.company, 500, '公积金单位 10,000×5% = 500（两侧比例可不同）');
+near(L.housingFundOf(SZ, 999999, 0.05, 0.05, true).base, 48471, '公积金基数封顶 48,471');
+near(L.housingFundOf(SZ, 1, 0.05, 0.05, true).base, 2520, '公积金基数保底 2,520');
+
 eq(L.MONTH_HOURS, 174, '月计薪工时 21.75×8 = 174');
 eq(L.BASIC_DEDUCTION, 5000, '每月减除费用 5,000');
 
