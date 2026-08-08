@@ -387,6 +387,14 @@
   .note .highlight-num { color: var(--label); font-weight: 600; }
 
   .footer { margin-top: 22px; text-align: center; font-size: 11.5px; color: var(--label-3); }
+  /* 构建标识：平时不抢眼，需要核对版本时一眼能找到 */
+  .build {
+    margin-left: 4px; padding: 1px 6px; border-radius: 5px;
+    background: rgba(0,0,0,.05); color: var(--label-2);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 10.5px; cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .build:active { background: rgba(0,0,0,.10); }
 
   /* ── 安装横幅 ── */
   .install-banner {
@@ -735,8 +743,13 @@
       </div>
     </div>
 
-    <div class="footer">仅供参考，实际以工资条为准</div>
   </div><!-- /tab-salary -->
+
+  <!-- 放在 tab 外面：两个页面都要能看到版本号，否则在日历页没法确认更新到没到 -->
+  <div class="footer">
+    仅供参考，实际以工资条为准
+    <span class="build" onclick="showBuild()" title="点一下看详情">b3c4dd2d</span>
+  </div>
 </div>
 
 <nav class="tab-bar">
@@ -1999,6 +2012,45 @@ function installApp() {
 function dismissBanner() {
   banner.classList.add('hidden');
   document.body.style.paddingTop = '0';
+}
+
+// 点版本号看详情。之前排查「手机上还是旧版」时全靠 curl 比对字节数，
+// 把这几个值摆出来，自己扫一眼就能判断是没更新还是缓存没清。
+function showBuild() {
+  var el = document.querySelector('.build');
+  var ver = el ? el.textContent.trim() : '?';
+  var lines = [
+    '构建版本：' + ver,
+    '页面地址：' + location.href.split('?')[0],
+  ];
+  var done = function(sw) {
+    lines.push('Service Worker：' + sw);
+    lines.push('');
+    lines.push('版本号对不上时：把 App 从后台划掉重开；仍不对则是缓存，点「确定」后清除。');
+    if (confirm(lines.join('\n'))) clearCachesAndReload();
+  };
+  if (!('serviceWorker' in navigator)) return done('不支持');
+  navigator.serviceWorker.getRegistrations().then(function(rs) {
+    done(rs.length ? '已注册 ' + rs.length + ' 个' : '未注册');
+  }).catch(function() { done('查询失败'); });
+}
+
+// 兜底的自助修复：清掉所有缓存并注销 SW，然后强制从网络重载
+function clearCachesAndReload() {
+  var jobs = [];
+  if (window.caches && caches.keys) {
+    jobs.push(caches.keys().then(function(ks) {
+      return Promise.all(ks.map(function(k) { return caches.delete(k); }));
+    }));
+  }
+  if ('serviceWorker' in navigator) {
+    jobs.push(navigator.serviceWorker.getRegistrations().then(function(rs) {
+      return Promise.all(rs.map(function(r) { return r.unregister(); }));
+    }));
+  }
+  Promise.all(jobs).catch(function() {}).then(function() {
+    location.replace(location.pathname + '?_=' + Date.now());
+  });
 }
 </script>
 </body>
