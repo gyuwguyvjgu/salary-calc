@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>深圳薪资计算器</title>
+<title>薪资计算器</title>
 <meta name="theme-color" content="#f2f2f7">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -12,7 +12,7 @@
 <link rel="manifest" href="manifest.json">
 <style>
   /* ═══════════════════════════════════════════════════════════
-     深圳薪资计算器 · iOS 设置页风格
+     薪资计算器 · iOS 设置页风格
      浅灰分组底 + 纯白 inset 卡片 + 通栏细线分隔（左侧内缩 16px）。
      全程系统字体，蓝色是唯一交互色，红色只用于负数与危险操作。
      ═══════════════════════════════════════════════════════════ */
@@ -280,6 +280,13 @@
     font-size: 34px; font-weight: 700; letter-spacing: -1px; line-height: 1.15; color: #fff;
   }
   .hero-sub { margin: 3px 0 14px; font-size: 12.5px; color: rgba(255,255,255,.72); }
+  /* 空状态提示：压在渐变卡内，与卡片同色系，不额外占一块视觉 */
+  .hero-empty {
+    margin: 0 -16px; padding: 11px 16px;
+    background: rgba(0,0,0,.14);
+    font-size: 12.5px; line-height: 1.5; color: rgba(255,255,255,.92);
+  }
+  .hero-empty.hidden { display: none; }
   .hero .row { margin: 0 -16px; padding-bottom: 13px; }
 
   /* 占比条 */
@@ -582,6 +589,10 @@
           </div>
           <span class="row-value dark" id="preTaxSalary">¥0</span>
         </div>
+        <!-- 什么都没填时顶掉那一屏 ¥0.00，直接告诉人下一步做什么 -->
+        <div class="hero-empty" id="heroEmpty">
+          还没填工资 —— 往下找到「工资组成」填入底薪即可看到结果
+        </div>
       </div>
     </div>
 
@@ -726,9 +737,9 @@
             <select class="row-select" id="dedHousing" onchange="calc()">
               <option value="0">无</option>
               <option value="1000">房贷利息 1,000</option>
-              <option value="1500">租金 · 深圳 1,500</option>
-              <option value="1100">租金 · 大城市 1,100</option>
-              <option value="800">租金 · 小城市 800</option>
+              <option value="1500">租金 · 直辖市/省会/单列市 1,500</option>
+              <option value="1100">租金 · 人口&gt;100万市 1,100</option>
+              <option value="800">租金 · 人口≤100万市 800</option>
             </select></div>
           <div class="row"><span class="row-icon ic-green">养</span><span class="row-label">赡养老人</span>
             <select class="row-select" id="dedElderly" onchange="calc()">
@@ -741,7 +752,7 @@
         </div>
       </div>
       <div class="group-foot">
-        子女教育与婴幼儿照护每人 2,000 元/月。住房支出二选一，同一年度内房贷利息与租金不得同时享受；租金档位按城市人口划分，大城市指人口超 100 万的市。赡养老人非独生每人分摊不超过 1,500。大病医疗按规定不在预扣预缴环节扣除。
+        子女教育与婴幼儿照护每人 2,000 元/月。住房支出二选一，同一年度内房贷利息与租金不得同时享受。租金 1,500 档适用于直辖市、省会城市、计划单列市——本应用预置的北京、上海、广州、深圳<strong>都属于这一档</strong>。赡养老人非独生每人分摊不超过 1,500。大病医疗按规定不在预扣预缴环节扣除。
       </div>
     </div>
 
@@ -1103,6 +1114,8 @@ function ymd(y, m, d) { return y + '-' + pad2(m) + '-' + pad2(d); }
 function r2(n) { return Math.round(n * 100) / 100; }
 function fmt(n) { return r2(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function fmt0(n) { return Math.round(n).toLocaleString('zh-CN'); }
+// 扣款金额：为 0 时不带负号，'-¥0.00' 看着像出错了
+function fmtNeg(n) { return (r2(n) > 0 ? '-¥' : '¥') + fmt(n); }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 function daysInMonth(y, m) { return new Date(y, m, 0).getDate(); }
 
@@ -1525,10 +1538,10 @@ function calc() {
   document.getElementById('rowSubsidy').textContent = '¥' + fmt(cur.sub);
   document.getElementById('rowOT').textContent = '¥' + fmt(cur.otPay);
   document.getElementById('rowGross').textContent = '¥' + fmt(cur.gross);
-  document.getElementById('rowSocialIns').textContent = '-¥' + fmt(cur.si);
-  document.getElementById('rowHousingFund').textContent = '-¥' + fmt(cur.hf);
-  document.getElementById('rowTax').textContent = '-¥' + fmt(cur.tax);
-  document.getElementById('rowTotalDeduct').textContent = '-¥' + fmt(cur.si + cur.hf + cur.tax);
+  document.getElementById('rowSocialIns').textContent = fmtNeg(cur.si);
+  document.getElementById('rowHousingFund').textContent = fmtNeg(cur.hf);
+  document.getElementById('rowTax').textContent = fmtNeg(cur.tax);
+  document.getElementById('rowTotalDeduct').textContent = fmtNeg(cur.si + cur.hf + cur.tax);
 
   var h = cur.hours;
   document.getElementById('attendNote').textContent =
@@ -1538,6 +1551,11 @@ function calc() {
   if (h.ot2 > 0) otParts.push('休息日 ' + h.ot2.toFixed(1) + 'h');
   if (h.ot3 > 0) otParts.push('法定假 ' + h.ot3.toFixed(1) + 'h');
   document.getElementById('otNote').textContent = otParts.length ? '（' + otParts.join(' · ') + '）' : '';
+  // 收入项全空时才算"还没开始用"；只填了年终奖也算填了
+  var hasInput = num('baseSalary') > 0 || num('bonus') > 0 ||
+                 num('subsidy') > 0 || num('yearEndBonus') > 0;
+  document.getElementById('heroEmpty').className = hasInput ? 'hero-empty hidden' : 'hero-empty';
+
   var city = currentCity();
   document.getElementById('siNote').textContent = '（' + city.name + ' ' + fmt(siInfo.total) + '/月）';
   document.getElementById('hfNote').textContent = hfInfo.total > 0
@@ -1584,7 +1602,7 @@ function calc() {
   document.getElementById('rowYEBDiv').textContent = '¥' + fmt(yebInfo.div);
   document.getElementById('rowYEBRate').textContent =
     yebInfo.yeb > 0 ? (yebInfo.rate * 100).toFixed(0) + '% / ' + fmt0(yebInfo.qd) : '—';
-  document.getElementById('rowYEBTax').textContent = '-¥' + fmt(yebInfo.tax);
+  document.getElementById('rowYEBTax').textContent = fmtNeg(yebInfo.tax);
   document.getElementById('rowYEBNet').textContent = '¥' + fmt(yebInfo.net);
   renderYebWarning(yebInfo.yeb);
 
@@ -1890,11 +1908,15 @@ function renderCalendar() {
 
   var warn = document.getElementById('calWarn');
   if (HOLIDAY_YEARS.indexOf(calYear) === -1) {
-    warn.className = 'warn-box';
-    warn.innerHTML = '⚠️ ' + calYear + ' 年的法定节假日与调休安排尚未收录，当前仅按周六日判断休息日，' +
-      '节假日加班倍数与补班日可能不准。已收录年份：' + HOLIDAY_YEARS.join('、') + '。';
+    // 用 crit-warn（红）而非 warn-box（黄）：这不是"仅供参考"级别的提示，
+    // 缺了调休数据，法定假 3 倍与补班日会直接算错，是会影响金额的降级。
+    warn.className = 'crit-warn';
+    warn.innerHTML = '<strong>⚠️ ' + calYear + ' 年的法定节假日与调休安排尚未收录</strong><br>' +
+      '当前只能按周六日判断休息日：法定节假日的 3 倍工资、调休放假日的 2 倍、' +
+      '调休补班日不算加班，这三项<strong>都会算错</strong>。<br>' +
+      '已收录年份：' + HOLIDAY_YEARS.join('、') + '。国务院办公厅通常在上一年 11 月前后发布次年安排。';
   } else {
-    warn.className = 'warn-box hidden';
+    warn.className = 'crit-warn hidden';
   }
 
   updateSummary();

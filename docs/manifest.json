@@ -1,7 +1,7 @@
 {
-  "name": "深圳薪资计算器",
+  "name": "薪资计算器",
   "short_name": "薪资计算",
-  "description": "深圳一档社保 · 累计预扣个税 · 调休已校准",
+  "description": "北上广深社保公积金 · 累计预扣个税 · 加班费与调休已校准",
   "start_url": "index.html",
   "display": "standalone",
   "orientation": "portrait",

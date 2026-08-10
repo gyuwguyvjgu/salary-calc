@@ -1,5 +1,5 @@
 // VERSION 由 build.js 用 index.html 的内容哈希替换，本地开发时保持 'dev'
-var VERSION = 'a859ca9f';
+var VERSION = '5e8f9b50';
 var CACHE = 'salary-calc-' + VERSION;
 var ASSETS = ['./', 'index.html', 'manifest.json', 'icon.svg', 'icon-512.png'];
 
