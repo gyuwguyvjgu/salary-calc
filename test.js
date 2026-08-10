@@ -17,7 +17,9 @@ var EXPORTS = ['CITIES', 'CITY_KEYS', 'CUSTOM_CITY_DEFAULT', 'socialInsOf', 'hou
   'yebCompare', 'grossForNet',
   'LEDGER_CATS', 'ledgerCat', 'ledgerAmount', 'ledgerSummary', 'ledgerRanking', 'ledgerBalance',
   'parseCSV', 'detectBillHeader', 'guessCategory', 'parseBillAmount', 'isDeadStatus',
-  'parseBill', 'billFingerprint'];
+  'parseBill', 'billFingerprint',
+  'xmlUnescape', 'colRefToIndex', 'parseSharedStrings', 'excelSerialToDate',
+  'looksLikeSerialDate', 'parseSheetXml'];
 
 var L = {};
 new Function('__e', m[1] + '\n;' + EXPORTS.map(function(k) {
@@ -795,6 +797,87 @@ eq(pc.items[0].y, 2026, '年份解析正确');
 // ── 脏数据不应抛异常 ──
 ok(L.parseBill([]).ok === false, '空表返回 ok:false');
 ok(L.parseBill([['交易时间','收/支','金额'],['坏日期','支出','10']]).items.length === 0, '日期无法解析时跳过该行');
+
+// ═══ 12. xlsx 解析 ═══
+section('12. xlsx 解析');
+
+// ── 列引用 → 列号 ──
+eq(L.colRefToIndex('A1'), 0, 'A → 0');
+eq(L.colRefToIndex('B2'), 1, 'B → 1');
+eq(L.colRefToIndex('Z9'), 25, 'Z → 25');
+eq(L.colRefToIndex('AA1'), 26, 'AA → 26');
+eq(L.colRefToIndex('AB1'), 27, 'AB → 27');
+eq(L.colRefToIndex(''), -1, '空引用 → -1');
+
+// ── XML 实体还原 ──
+eq(L.xmlUnescape('a&amp;b'), 'a&b', '&amp;');
+eq(L.xmlUnescape('&lt;tag&gt;'), '<tag>', '尖括号');
+eq(L.xmlUnescape('&quot;q&quot;'), '"q"', '引号');
+eq(L.xmlUnescape('&#65;&#x42;'), 'AB', '数字与十六进制实体');
+// &amp; 必须最后还原，否则 &amp;lt; 会被二次解成 <
+eq(L.xmlUnescape('&amp;lt;'), '&lt;', '转义的实体不被二次还原');
+
+// ── 共享字符串（含富文本分段���──
+var sst = '<sst><si><t>交易时间</t></si><si><t>金额</t></si>' +
+          '<si><r><t>富</t></r><r><t>文本</t></r></si><si/></sst>';
+var ss = L.parseSharedStrings(sst);
+eq(ss[0], '交易时间', '第 0 条');
+eq(ss[1], '金额', '第 1 条');
+eq(ss[2], '富文本', '富文本多段拼接');
+eq(ss.length, 4, '自闭合的空 si 也占位（否则后续索引会错位）');
+
+// ── Excel 日期序列号 ──
+// 纪元 1899-12-30：Excel 沿用 Lotus 把 1900 当闰年的 bug，用 12-30 起算刚好抵消
+eq(L.excelSerialToDate(46237), '2026-08-03', '46237 → 2026-08-03');
+eq(L.excelSerialToDate(46237.51), '2026-08-03', '带时间小数只取日期部分');
+eq(L.excelSerialToDate(1), '1900-01-01', '序列号 1 → 1900-01-01（1900-02-29 之前要少减一天）');
+eq(L.excelSerialToDate(59), '1900-02-28', '序列号 59 → 1900-02-28');
+eq(L.excelSerialToDate(61), '1900-03-01', '序列号 61 → 1900-03-01（越过不存在的 02-29）');
+eq(L.excelSerialToDate(44927), '2023-01-01', '近年日期换算正确');
+eq(L.excelSerialToDate(0), '', '0 视为无效');
+eq(L.excelSerialToDate('abc'), '', '非数字 → 空');
+ok(L.looksLikeSerialDate(46237), '46237 像日期序列号');
+ok(!L.looksLikeSerialDate(35.5), '35.5 是金额不是序列号');
+ok(!L.looksLikeSerialDate('2026-08-03'), '文本日期不当序列号处理');
+ok(!L.looksLikeSerialDate(200), '200 是金额不是序列号');
+
+// ── sheet XML → 二维数组 ──
+var shared2 = ['甲','乙','丙'];
+var sheet = '<worksheet><sheetData>' +
+  '<row r="1"><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>' +
+  '<row r="2"><c r="A2"><v>123.45</v></c><c r="C2" t="s"><v>2</v></c></row>' +
+  '<row r="3"><c r="B3" t="inlineStr"><is><t>行内</t></is></c></row>' +
+  '</sheetData></worksheet>';
+var sh = L.parseSheetXml(sheet, shared2);
+eq(sh.length, 3, '三行');
+eq(sh[0][0], '甲', '共享字符串解引用');
+eq(sh[1][0], '123.45', '数字按原样取字符串');
+// B2 在 XML 里是省略的，必须按 r="C2" 定位到第 2 列而不是顺序排到第 1 列
+eq(sh[1][1], '', '空单元格补空串');
+eq(sh[1][2], '丙', '跳过空列后仍落在正确列号');
+eq(sh[2][1], '行内', 'inlineStr 类型');
+
+// ── xlsx 里日期是序列号时，parseBill 仍能解析 ──
+var xlRows = [
+  ['交易时间','交易对方','商品说明','收/支','金额','交易状态'],
+  ['46237.51','美团平台商户','午餐','支出','35.5','交易成功'],
+  ['46239.37','张三','红包','收入','200','交易成功'],
+];
+var xp = L.parseBill(xlRows);
+eq(xp.items.length, 2, '序列号日期的两条都解析出来');
+eq(xp.items[0].y, 2026, '序列号还原出年份');
+eq(xp.items[0].m, 8, '序列号还原出月份');
+eq(xp.items[0].d, 3, '序列号还原出日期');
+eq(xp.items[0].c, 'food', '归类仍然生效');
+eq(xp.items[1].t, 'i', '收入方向正确');
+
+// 斜杠日期格式也要认（部分银行导出用 2026/08/03）
+var slash = L.parseBill([
+  ['交易时间','交易对方','收/支','金额','交易状态'],
+  ['2026/08/03 10:00','某商户','支出','66','交易成功'],
+]);
+eq(slash.items.length, 1, '斜杠分隔的日期能解析');
+eq(slash.items[0].m, 8, '斜杠日期月份正确');
 
 // ── 汇总 ──
 console.log('\n' + '─'.repeat(46));

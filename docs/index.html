@@ -1059,7 +1059,7 @@
   <!-- 放在 tab 外面：两个页面都要能看到版本号，否则在日历页没法确认更新到没到 -->
   <div class="footer">
     仅供参考，实际以工资条为准
-    <span class="build" onclick="showBuild()" title="点一下看详情">1789d07d</span>
+    <span class="build" onclick="showBuild()" title="点一下看详情">6f81709c</span>
   </div>
 </div>
 
@@ -1717,7 +1717,10 @@ function parseBill(rows) {
     var amt = parseBillAmount(get('amount'));
     if (amt <= 0) { skipped++; continue; }
 
-    var dm = get('time').match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+    // xlsx 里日期常常存成序列号（46234.5）而不是文本，先转成 ISO 再匹配
+    var timeRaw = get('time');
+    if (looksLikeSerialDate(timeRaw)) timeRaw = excelSerialToDate(timeRaw);
+    var dm = timeRaw.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
     if (!dm) { skipped++; continue; }
 
     var party = get('party'), prod = get('product');
@@ -1730,6 +1733,103 @@ function parseBill(rows) {
     });
   }
   return { items: items, skipped: skipped, ok: true };
+}
+
+// ── xlsx 解析 ──
+// xlsx 是个 ZIP 装着 XML。解压交给浏览器原生的 DecompressionStream（见 DOM 层），
+// 这里只负责把解出来的 XML 转成二维数组，好接到 parseBill 上复用全部下游逻辑。
+
+// XML 实体还原。账单里商户名带 & 的不少，不还原会串进字段里。
+function xmlUnescape(s) {
+  return String(s == null ? '' : s)
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+    .replace(/&#(\d+);/g, function(_, d) { return String.fromCharCode(+d); })
+    .replace(/&#x([0-9a-fA-F]+);/g, function(_, x) { return String.fromCharCode(parseInt(x, 16)); })
+    .replace(/&amp;/g, '&');   // 必须最后做，否则 &amp;lt; 会被二次还原
+}
+
+// 列引用 → 从 0 起的列号。'A'→0, 'Z'→25, 'AA'→26
+function colRefToIndex(ref) {
+  var m = String(ref || '').match(/^([A-Z]+)/);
+  if (!m) return -1;
+  var n = 0, s = m[1];
+  for (var i = 0; i < s.length; i++) n = n * 26 + (s.charCodeAt(i) - 64);
+  return n - 1;
+}
+
+// sharedStrings.xml → 字符串数组。
+// 一个 <si> 里可能有多个 <r><t>（富文本分段），要全部拼起来。
+function parseSharedStrings(xml) {
+  var out = [];
+  var items = String(xml || '').match(/<si[\s>][\s\S]*?<\/si>|<si\/>/g) || [];
+  items.forEach(function(si) {
+    var parts = si.match(/<t[^>]*>([\s\S]*?)<\/t>/g) || [];
+    out.push(parts.map(function(t) {
+      return xmlUnescape(t.replace(/<t[^>]*>/, '').replace(/<\/t>$/, ''));
+    }).join(''));
+  });
+  return out;
+}
+
+// Excel 日期序列号 → 'YYYY-MM-DD'。
+//
+// Excel 里存在一个不存在的日期 1900-02-29（序列号 60），这是沿用 Lotus 1-2-3
+// 的兼容 bug。因此偏移量分两段：
+//   序列号 ≥ 61（1900-03-01 起）：减 25569 即得 Unix 天数
+//   序列号 ≤ 59：真实日期比上式晚一天，要少减 1
+// 账单日期当然落不到 1900 年，但函数不该在边界上悄悄给错值。
+function excelSerialToDate(n) {
+  var days = Math.floor(Number(n));
+  if (!isFinite(days) || days <= 0) return '';
+  var offset = days > 60 ? 25569 : 25568;
+  var d = new Date((days - offset) * 86400000);
+  var p = function(v) { return (v < 10 ? '0' : '') + v; };
+  return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate());
+}
+
+// 序列号看着像日期吗。30000≈1982、80000≈2119，账单不可能落在这区间外
+function looksLikeSerialDate(v) {
+  var n = Number(v);
+  return isFinite(n) && n > 30000 && n < 80000;
+}
+
+// sheet XML → 二维数组。空单元格在 XML 里是省略的，
+// 所以必须按 r="B3" 里的列引用定位，不能顺序 push。
+function parseSheetXml(xml, shared) {
+  var rows = [];
+  var rowTags = String(xml || '').match(/<row[\s>][\s\S]*?<\/row>|<row[^>]*\/>/g) || [];
+  rowTags.forEach(function(rt) {
+    var cells = [];
+    var cellTags = rt.match(/<c[\s>][\s\S]*?<\/c>|<c[^>]*\/>/g) || [];
+    cellTags.forEach(function(ct) {
+      var refM = ct.match(/\sr="([A-Z]+\d+)"/);
+      var idx = refM ? colRefToIndex(refM[1]) : cells.length;
+      var typeM = ct.match(/\st="([^"]+)"/);
+      var type = typeM ? typeM[1] : '';
+      var val = '';
+
+      if (type === 'inlineStr') {
+        var isM = ct.match(/<t[^>]*>([\s\S]*?)<\/t>/);
+        val = isM ? xmlUnescape(isM[1]) : '';
+      } else {
+        var vM = ct.match(/<v[^>]*>([\s\S]*?)<\/v>/);
+        var raw = vM ? vM[1] : '';
+        if (type === 's') {
+          val = shared[+raw] === undefined ? '' : shared[+raw];
+        } else {
+          val = xmlUnescape(raw);
+        }
+      }
+      if (idx >= 0) cells[idx] = val;
+    });
+    // 稀疏数组补空串，下游按列号取值时才不会拿到 undefined
+    for (var i = 0; i < cells.length; i++) if (cells[i] === undefined) cells[i] = '';
+    rows.push(cells);
+  });
+  return rows.filter(function(r) {
+    return r.some(function(c) { return String(c).trim() !== ''; });
+  });
 }
 
 // 去重指纹：同一天、同方向、同金额、同备注视为同一笔。
@@ -2724,6 +2824,62 @@ function decodeBill(buf) {
   return u8.replace(/^﻿/, '');   // 去掉 BOM
 }
 
+// ── xlsx 解压 ──
+// xlsx = ZIP + XML。用浏览器原生 DecompressionStream 解 deflate，
+// 不引入 SheetJS（那是 800KB，为一个导入功能不值）。
+// 只读本地文件头就够了，不必解析中央目录。
+
+function u16(b, o) { return b[o] | (b[o + 1] << 8); }
+function u32(b, o) { return (b[o] | (b[o+1] << 8) | (b[o+2] << 16) | (b[o+3] << 24)) >>> 0; }
+
+// 解 raw deflate。Safari 16.4 / Chrome 103 起支持，更早的浏览器会走到 catch。
+function inflateRaw(bytes) {
+  var ds = new DecompressionStream('deflate-raw');
+  var stream = new Blob([bytes]).stream().pipeThrough(ds);
+  return new Response(stream).arrayBuffer();
+}
+
+// 遍历本地文件头，取出需要的条目。返回 { 路径: Uint8Array }
+function unzip(buf) {
+  var b = new Uint8Array(buf), out = {}, jobs = [], i = 0;
+  while (i < b.length - 4) {
+    if (u32(b, i) !== 0x04034b50) break;          // 不是本地文件头就停
+    var method = u16(b, i + 8);
+    var compSize = u32(b, i + 18);
+    var nameLen = u16(b, i + 26);
+    var extraLen = u16(b, i + 28);
+    var nameStart = i + 30;
+    var name = new TextDecoder('utf-8').decode(b.subarray(nameStart, nameStart + nameLen));
+    var dataStart = nameStart + nameLen + extraLen;
+    var chunk = b.subarray(dataStart, dataStart + compSize);
+
+    // 只解我们要用的三个文件，整包解会白白耗时
+    if (/^xl\/(worksheets\/sheet1\.xml|sharedStrings\.xml|workbook\.xml)$/.test(name)) {
+      if (method === 0) {
+        out[name] = chunk.slice();
+      } else if (method === 8) {
+        jobs.push(inflateRaw(chunk).then(function(nm) {
+          return function(ab) { out[nm] = new Uint8Array(ab); };
+        }(name)));
+      }
+    }
+    i = dataStart + compSize;
+    if (compSize === 0) break;   // 数据描述符形式的包这里读不到长度，直接放弃
+  }
+  return Promise.all(jobs).then(function() { return out; });
+}
+
+function readXlsx(buf) {
+  return unzip(buf).then(function(files) {
+    var sheet = files['xl/worksheets/sheet1.xml'];
+    if (!sheet) throw new Error('no-sheet');
+    var dec = new TextDecoder('utf-8');
+    var shared = files['xl/sharedStrings.xml']
+      ? parseSharedStrings(dec.decode(files['xl/sharedStrings.xml'])) : [];
+    return parseSheetXml(dec.decode(sheet), shared);
+  });
+}
+
 function onBillFile(input) {
   var file = input.files && input.files[0];
   input.value = '';
@@ -2731,39 +2887,59 @@ function onBillFile(input) {
 
   var reader = new FileReader();
   reader.onload = function() {
-    var text;
-    try { text = decodeBill(reader.result); }
-    catch (e) { alert('文件读取失败。'); return; }
+    var buf = reader.result;
+    var head = new Uint8Array(buf).subarray(0, 4);
+    // xlsx 是 ZIP，magic 为 PK\x03\x04；据此判断而不是看扩展名，
+    // 有些渠道导出的文件扩展名并不准
+    var isZip = head[0] === 0x50 && head[1] === 0x4B && head[2] === 0x03 && head[3] === 0x04;
 
-    var res = parseBill(parseCSV(text));
-    if (!res.ok) {
-      alert('没能认出这个账单格式。\n\n需要包含「交易时间」「收/支」「金额」这几列的 CSV。\n如果是 Excel，先另存为 CSV 再试。');
-      return;
-    }
-    if (!res.items.length) {
-      alert('文件认出来了，但没有可导入的记录。\n（退款、已关闭、不计收支的条目会被跳过）');
-      return;
-    }
+    var rowsPromise = isZip
+      ? readXlsx(buf)
+      : Promise.resolve(parseCSV(decodeBill(buf)));
 
-    // 与已有流水比对指纹，重复的默认不勾选，避免同一份账单导两次
-    var dupCount = 0;
-    var seenByMonth = {};
-    impItems = res.items.map(function(e) {
-      var mk = e.y + '-' + e.m;
-      if (!seenByMonth[mk]) {
-        seenByMonth[mk] = {};
-        loadLedger(e.y, e.m).forEach(function(x) { seenByMonth[mk][billFingerprint(x)] = 1; });
+    rowsPromise.then(function(rows) {
+      finishBillImport(parseBill(rows), isZip);
+    }).catch(function(err) {
+      if (String(err && err.message) === 'no-sheet') {
+        alert('这个 Excel 文件里没找到工作表。\n如果是 .xls 老格式，请先另存为 .xlsx。');
+      } else if (typeof DecompressionStream === 'undefined') {
+        alert('当前浏览器不支持解压 Excel，请换 Chrome/Safari 新版，或把账单另存为 CSV。');
+      } else {
+        alert('文件解析失败。\n如果是 .xls 老格式，请先另存为 .xlsx 或 CSV。');
       }
-      var dup = !!seenByMonth[mk][billFingerprint(e)];
-      if (dup) dupCount++;
-      return Object.assign({}, e, { on: !dup, dup: dup });
     });
-
-    renderImport(res.skipped, dupCount);
-    document.getElementById('impGroup').scrollIntoView({ block: 'start', behavior: 'smooth' });
   };
   reader.onerror = function() { alert('文件读取失败。'); };
   reader.readAsArrayBuffer(file);
+}
+
+function finishBillImport(res, isZip) {
+  if (!res.ok) {
+    alert('没能认出这个账单格式。\n\n需要有「交易时间」「收/支」「金额」这几列。' +
+          (isZip ? '\n\n如果表头不在第一个工作表，请把它挪过去再导。' : ''));
+    return;
+  }
+  if (!res.items.length) {
+    alert('文件认出来了，但没有可导入的记录。\n（退款、已关闭、不计收支的条目会被跳过）');
+    return;
+  }
+
+  // 与已有流水比对指纹，重复的默认不勾选，避免同一份账单导两次
+  var dupCount = 0;
+  var seenByMonth = {};
+  impItems = res.items.map(function(e) {
+    var mk = e.y + '-' + e.m;
+    if (!seenByMonth[mk]) {
+      seenByMonth[mk] = {};
+      loadLedger(e.y, e.m).forEach(function(x) { seenByMonth[mk][billFingerprint(x)] = 1; });
+    }
+    var dup = !!seenByMonth[mk][billFingerprint(e)];
+    if (dup) dupCount++;
+    return Object.assign({}, e, { on: !dup, dup: dup });
+  });
+
+  renderImport(res.skipped, dupCount);
+  document.getElementById('impGroup').scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 
 function toggleImp(i) {
