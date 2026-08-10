@@ -714,6 +714,33 @@
       <div class="group-foot" id="flAddHint">选分类、填金额即可。记录只存在本机，可在「薪资计算」页底部导出备份。</div>
     </div>
 
+    <!-- 账单导入 -->
+    <div class="group">
+      <div class="group-title">导入账单<span>支付宝 / 微信 / 银行</span></div>
+      <div class="card list">
+        <button class="row row-action" onclick="document.getElementById('billFile').click()">选择账单文件</button>
+      </div>
+      <input type="file" id="billFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="onBillFile(this)">
+      <div class="group-foot">
+        在支付宝「我的 → 账单 → 右上角 → 开具交易流水证明」或微信「我 → 服务 → 钱包 → 账单 → 常见问题 → 下载账单」申请，会发到你邮箱，把 CSV 存到手机再选它。文件只在本机解析，不上传。
+      </div>
+    </div>
+
+    <!-- 导入预览 -->
+    <div class="group" id="impGroup" style="display:none;">
+      <div class="group-title">导入预览<span id="impStat"></span></div>
+      <div class="card list">
+        <div class="row">
+          <span class="row-label">全选 / 全不选</span>
+          <span class="row-value"><button class="fl-del" style="width:auto;padding:0 10px;border-radius:8px" onclick="toggleAllImp()">切换</button></span>
+        </div>
+        <div id="impList"></div>
+        <button class="row row-action" onclick="commitImport()">确认导入</button>
+        <button class="row row-action danger" onclick="cancelImport()">取消</button>
+      </div>
+      <div class="group-foot" id="impFoot"></div>
+    </div>
+
     <!-- 分类排行 -->
     <div class="group" id="flRankGroup">
       <div class="group-title">支出构成<span id="flRankTotal"></span></div>
@@ -1566,6 +1593,149 @@ function ledgerBalance(entries, takeHome) {
     // 支出占总流入的比例，流入为 0 时给 0
     rate: inflow > 0 ? r2(sum.expense / inflow * 100) : 0,
   };
+}
+
+// ═══════════════════════════════════════════════════════════
+//  账单 CSV 导入
+// ═══════════════════════════════════════════════════════════
+
+// 逐字符解析，处理引号包裹、字段内逗号与换行。
+// 不能用 split(',')：账单的商品说明里经常带逗号，一 split 整行就错位。
+function parseCSV(text) {
+  var rows = [], row = [], cur = '', q = false;
+  var s = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  for (var i = 0; i < s.length; i++) {
+    var ch = s[i];
+    if (q) {
+      // 引号内的连续两个引号是转义的字面量引号
+      if (ch === '"') { if (s[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else cur += ch;
+    } else if (ch === '"') { q = true; }
+    else if (ch === ',') { row.push(cur); cur = ''; }
+    else if (ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+    else cur += ch;
+  }
+  if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  // 账单里空行不少，直接丢掉
+  return rows.filter(function(r) {
+    return r.some(function(c) { return String(c).trim() !== ''; });
+  });
+}
+
+// 各列的可能叫法。支付宝与微信列名不同，且正式表头前有若干说明行，
+// 所以不能假设第一行是表头，要按关键列名去找。
+var BILL_COLS = {
+  time:    ['交易时间', '交易创建时间', '时间'],
+  party:   ['交易对方', '对方', '交易方'],
+  product: ['商品说明', '商品', '商品名称', '备注'],
+  dir:     ['收/支', '收支', '收支类型'],
+  amount:  ['金额', '金额(元)', '金额（元）'],
+  status:  ['交易状态', '当前状态', '状态'],
+};
+
+function normHead(s) { return String(s || '').replace(/[\s"']/g, ''); }
+
+// 返回 { idx: 表头行号, cols: {字段: 列号} }，找不到返回 null
+function detectBillHeader(rows) {
+  for (var i = 0; i < Math.min(rows.length, 40); i++) {
+    var r = rows[i].map(normHead);
+    var cols = {}, hit = 0;
+    for (var key in BILL_COLS) {
+      for (var j = 0; j < r.length; j++) {
+        if (BILL_COLS[key].indexOf(r[j]) >= 0) { cols[key] = j; hit++; break; }
+      }
+    }
+    // 时间、收支、金额三列齐了才算认出账单，避免把说明行误判成表头
+    if (cols.time !== undefined && cols.dir !== undefined && cols.amount !== undefined) {
+      return { idx: i, cols: cols, hit: hit };
+    }
+  }
+  return null;
+}
+
+// 商户关键词 → 分类。顺序即优先级，先匹配到的胜出。
+var CAT_RULES = [
+  // 「超市」不放这里：天猫超市/京东超市都是电商，会被误判成餐饮。
+  // 线下商超归购物更合理，真买菜的人可以手动改。
+  { c: 'food',    k: ['美团', '饿了么', '外卖', '餐厅', '餐饮', '咖啡', '星巴克', '瑞幸', '奶茶', '喜茶', '肯德基', '麦当劳', '菜市场', '食堂', '烧烤', '火锅', '面馆', '小吃'] },
+  { c: 'transit', k: ['滴滴', '出行', '地铁', '公交', '高铁', '铁路', '12306', '航空', '机票', '加油', '石化', '石油', '停车', '打车', '单车', '哈啰', '青桔', '交通'] },
+  { c: 'shop',    k: ['淘宝', '天猫', '京东', '拼多多', '唯品会', '亚马逊', '商城', '专卖', '服饰', '优衣库', '超市', '百货', '便利店'] },
+  { c: 'home',    k: ['房租', '物业', '水费', '电费', '燃气', '宽带', '话费', '充值', '中国移动', '中国联通', '中国电信', '家政'] },
+  { c: 'fun',     k: ['电影', '影城', '影院', '游戏', 'Steam', '腾讯视频', '爱奇艺', '优酷', 'B站', '哔哩', '网易云', 'QQ音乐', '会员', 'KTV', '健身'] },
+  { c: 'med',     k: ['医院', '药房', '药店', '大药房', '诊所', '体检', '挂号', '医疗'] },
+  { c: 'edu',     k: ['学费', '培训', '课程', '网课', '书店', '图书', '当当', '得到', '知乎'] },
+];
+
+var INCOME_RULES = [
+  { c: 'reimb',  k: ['报销', '退款', '退回'] },
+  { c: 'gift',   k: ['红包', '转账', '亲属'] },
+  { c: 'invest', k: ['理财', '基金', '利息', '收益', '余额宝', '零钱通'] },
+  { c: 'side',   k: ['工资', '薪', '劳务', '稿费', '兼职'] },
+];
+
+// 在对方名称与商品说明里找关键词；都不中则归「其他」
+function guessCategory(text, type) {
+  var s = String(text || '');
+  var rules = type === 'i' ? INCOME_RULES : CAT_RULES;
+  for (var i = 0; i < rules.length; i++) {
+    for (var j = 0; j < rules[i].k.length; j++) {
+      if (s.indexOf(rules[i].k[j]) >= 0) return rules[i].c;
+    }
+  }
+  return type === 'i' ? 'iother' : 'eother';
+}
+
+// 金额可能写成 "¥35.50" / "35.50" / "35.50元"，统一抠出数字
+function parseBillAmount(raw) {
+  var m = String(raw || '').replace(/[,\s]/g, '').match(/\d+(\.\d+)?/);
+  return m ? parseFloat(m[0]) : 0;
+}
+
+// 这些状态说明钱最终没花出去或已退回，导进来会虚增支出
+function isDeadStatus(s) {
+  var t = String(s || '');
+  return /退款|已退还|关闭|失败|撤销|冲正/.test(t);
+}
+
+// 解析成可导入的记录。返回 { items, skipped }。
+// items 里带 y/m/d，让调用方能把不同月份的交易分别写进各自的月份存档。
+function parseBill(rows) {
+  var head = detectBillHeader(rows);
+  if (!head) return { items: [], skipped: 0, ok: false };
+
+  var c = head.cols, items = [], skipped = 0;
+  for (var i = head.idx + 1; i < rows.length; i++) {
+    var r = rows[i];
+    var get = function(k) { return c[k] === undefined ? '' : String(r[c[k]] || '').trim(); };
+
+    var dir = get('dir');
+    var t = dir.indexOf('收入') >= 0 ? 'i' : dir.indexOf('支出') >= 0 ? 'e' : null;
+    // 「不计收支」与微信的「/」是账户间划转，不是真实收支
+    if (!t) { skipped++; continue; }
+    if (isDeadStatus(get('status'))) { skipped++; continue; }
+
+    var amt = parseBillAmount(get('amount'));
+    if (amt <= 0) { skipped++; continue; }
+
+    var dm = get('time').match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (!dm) { skipped++; continue; }
+
+    var party = get('party'), prod = get('product');
+    items.push({
+      y: +dm[1], m: +dm[2], d: +dm[3],
+      t: t,
+      c: guessCategory(party + ' ' + prod, t),
+      a: r2(amt),
+      n: (party || prod || '').slice(0, 20),
+    });
+  }
+  return { items: items, skipped: skipped, ok: true };
+}
+
+// 去重指纹：同一天、同方向、同金额、同备注视为同一笔。
+// 重复导入同一份账单时用它挡掉，避免流水翻倍。
+function billFingerprint(e) {
+  return [e.d, e.t, r2(ledgerAmount(e.a)).toFixed(2), String(e.n || '').slice(0, 20)].join('|');
 }
 
 // ══════════════ PURE-LOGIC END ══════════════
@@ -2538,6 +2708,149 @@ function takeHomeOf(month) {
   var months = calcYear();
   var r = months[month - 1];
   return r ? r.net : 0;
+}
+
+// ── 账单导入 ──
+var impItems = [];    // 解析出来待确认的记录，每项多一个 on 表示是否勾选
+
+// 支付宝导出的 CSV 是 GBK，微信是 UTF-8（可能带 BOM）。
+// 先按 UTF-8 解，出现大量替换字符就说明猜错了，改用 GBK 重解。
+function decodeBill(buf) {
+  var u8 = new TextDecoder('utf-8').decode(buf);
+  var bad = (u8.match(/�/g) || []).length;
+  if (bad > 3) {
+    try { return new TextDecoder('gbk').decode(buf); } catch (e) {}
+  }
+  return u8.replace(/^﻿/, '');   // 去掉 BOM
+}
+
+function onBillFile(input) {
+  var file = input.files && input.files[0];
+  input.value = '';
+  if (!file) return;
+
+  var reader = new FileReader();
+  reader.onload = function() {
+    var text;
+    try { text = decodeBill(reader.result); }
+    catch (e) { alert('文件读取失败。'); return; }
+
+    var res = parseBill(parseCSV(text));
+    if (!res.ok) {
+      alert('没能认出这个账单格式。\n\n需要包含「交易时间」「收/支」「金额」这几列的 CSV。\n如果是 Excel，先另存为 CSV 再试。');
+      return;
+    }
+    if (!res.items.length) {
+      alert('文件认出来了，但没有可导入的记录。\n（退款、已关闭、不计收支的条目会被跳过）');
+      return;
+    }
+
+    // 与已有流水比对指纹，重复的默认不勾选，避免同一份账单导两次
+    var dupCount = 0;
+    var seenByMonth = {};
+    impItems = res.items.map(function(e) {
+      var mk = e.y + '-' + e.m;
+      if (!seenByMonth[mk]) {
+        seenByMonth[mk] = {};
+        loadLedger(e.y, e.m).forEach(function(x) { seenByMonth[mk][billFingerprint(x)] = 1; });
+      }
+      var dup = !!seenByMonth[mk][billFingerprint(e)];
+      if (dup) dupCount++;
+      return Object.assign({}, e, { on: !dup, dup: dup });
+    });
+
+    renderImport(res.skipped, dupCount);
+    document.getElementById('impGroup').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  };
+  reader.onerror = function() { alert('文件读取失败。'); };
+  reader.readAsArrayBuffer(file);
+}
+
+function toggleImp(i) {
+  if (impItems[i]) { impItems[i].on = !impItems[i].on; renderImport(); }
+}
+
+function toggleAllImp() {
+  var anyOff = impItems.some(function(e) { return !e.on; });
+  impItems.forEach(function(e) { e.on = anyOff; });
+  renderImport();
+}
+
+// 导入时可以就地改分类：自动归类必然有错的，不给改就只能导完再一条条修
+function setImpCat(i, key) {
+  if (impItems[i]) { impItems[i].c = key; renderImport(); }
+}
+
+var impSkipped = 0, impDup = 0;
+
+function renderImport(skipped, dup) {
+  if (skipped !== undefined) { impSkipped = skipped; impDup = dup || 0; }
+  var g = document.getElementById('impGroup');
+  if (!impItems.length) { g.style.display = 'none'; return; }
+  g.style.display = '';
+
+  var on = impItems.filter(function(e) { return e.on; });
+  var exp = 0, inc = 0;
+  on.forEach(function(e) { if (e.t === 'i') inc += e.a; else exp += e.a; });
+
+  document.getElementById('impStat').textContent = '已选 ' + on.length + ' / ' + impItems.length + ' 条';
+  document.getElementById('impFoot').innerHTML =
+    '将导入支出 ¥' + fmt(exp) + '、收入 ¥' + fmt(inc) + '。' +
+    (impSkipped ? '<br>已自动跳过 ' + impSkipped + ' 条（退款、已关闭、不计收支）。' : '') +
+    (impDup ? '<br>有 ' + impDup + ' 条与现有流水重复，已默认不勾选。' : '') +
+    '<br>分类是按商户名猜的，点分类图标可以改。';
+
+  document.getElementById('impList').innerHTML = impItems.map(function(e, i) {
+    var c = ledgerCat(e.t, e.c);
+    var opts = LEDGER_CATS[e.t === 'i' ? 'i' : 'e'].map(function(x) {
+      return '<option value="' + x.key + '"' + (x.key === e.c ? ' selected' : '') + '>' + x.name + '</option>';
+    }).join('');
+    return '<div class="row" style="' + (e.on ? '' : 'opacity:.42') + '">' +
+      '<button class="fl-del" style="background:' + (e.on ? 'var(--blue)' : 'var(--field)') +
+        ';color:' + (e.on ? '#fff' : 'var(--label-3)') + '" onclick="toggleImp(' + i + ')">' +
+        (e.on ? '✓' : '') + '</button>' +
+      '<div class="row-main">' +
+        '<div class="row-label" style="font-size:14px">' + esc(e.n || c.name) +
+          (e.dup ? '<span class="sub">重复</span>' : '') + '</div>' +
+        '<div class="row-desc">' + e.m + '月' + e.d + '日</div>' +
+      '</div>' +
+      '<select class="row-select" style="flex:0 0 auto;max-width:76px;font-size:13px" ' +
+        'onchange="setImpCat(' + i + ', this.value)">' + opts + '</select>' +
+      '<span class="row-value fl-amt ' + (e.t === 'i' ? 'inc' : 'exp') + '" style="font-size:14px">' +
+        (e.t === 'i' ? '+' : '−') + fmt0(e.a) + '</span>' +
+    '</div>';
+  }).join('');
+}
+
+function cancelImport() {
+  impItems = [];
+  document.getElementById('impGroup').style.display = 'none';
+}
+
+function commitImport() {
+  var on = impItems.filter(function(e) { return e.on; });
+  if (!on.length) { alert('一条都没勾选。'); return; }
+  if (!confirm('确认导入 ' + on.length + ' 条记录？')) return;
+
+  // 按年月分组写入 —— 一份账单常常跨月，各条要落到自己所属的月份存档
+  var byMonth = {};
+  on.forEach(function(e) {
+    var k = e.y + '|' + e.m;
+    if (!byMonth[k]) byMonth[k] = [];
+    byMonth[k].push({ d: e.d, t: e.t, c: e.c, a: e.a, n: e.n });
+  });
+  var months = 0;
+  for (var k in byMonth) {
+    var parts = k.split('|');
+    var y = +parts[0], m = +parts[1];
+    saveLedger(y, m, loadLedger(y, m).concat(byMonth[k]));
+    months++;
+  }
+
+  var n = on.length;
+  cancelImport();
+  renderLedger();
+  alert('已导入 ' + n + ' 条，覆盖 ' + months + ' 个月份。');
 }
 
 // 点日历某天：既筛选流水，也把录入日期切过去。再点同一天取消筛选。

@@ -15,7 +15,9 @@ var EXPORTS = ['CITIES', 'CITY_KEYS', 'CUSTOM_CITY_DEFAULT', 'socialInsOf', 'hou
   'BASIC_DEDUCTION', 'MONTH_HOURS', 'YEB_CRITICAL', 'getDayMeta', 'taxOf', 'getMonthHoursFrom',
   'accumulateTax', 'basePayOf', 'otPayOf', 'yebTaxOf', 'yebBracket', 'daysInMonth', 'r2', 'ymd',
   'yebCompare', 'grossForNet',
-  'LEDGER_CATS', 'ledgerCat', 'ledgerAmount', 'ledgerSummary', 'ledgerRanking', 'ledgerBalance'];
+  'LEDGER_CATS', 'ledgerCat', 'ledgerAmount', 'ledgerSummary', 'ledgerRanking', 'ledgerBalance',
+  'parseCSV', 'detectBillHeader', 'guessCategory', 'parseBillAmount', 'isDeadStatus',
+  'parseBill', 'billFingerprint'];
 
 var L = {};
 new Function('__e', m[1] + '\n;' + EXPORTS.map(function(k) {
@@ -677,6 +679,122 @@ ok(!isNaN(L.ledgerBalance([], undefined).balance), 'takeHome 传 undefined 也�
 });
 ok(L.LEDGER_CATS.e.length >= 5, '支出分类不少于 5 个');
 ok(L.LEDGER_CATS.i.length >= 3, '收入分类不少于 3 个');
+
+// ═══ 11. 账单 CSV 解析 ═══
+section('11. 账单 CSV 解析');
+
+// ── CSV 分词：引号包裹、字段内逗号、转义引号 ──
+var c1 = L.parseCSV('a,b,c\n1,2,3');
+eq(c1.length, 2, '两行');
+eq(c1[1][2], '3', '普通字段');
+var c2 = L.parseCSV('"含,逗号","含""引号""",普通');
+eq(c2[0][0], '含,逗号', '引号内的逗号不当分隔符');
+eq(c2[0][1], '含"引号"', '连续两个引号是转义的字面量引号');
+eq(c2[0][2], '普通', '未加引号的字段照常解析');
+eq(L.parseCSV('a,b\n\n\nc,d').length, 2, '空行被丢弃');
+eq(L.parseCSV('').length, 0, '空文本返回空数组');
+
+// ── 表头识别：正式表头前有说明行 ──
+var ali = [
+  ['支付宝交易记录明细查询'],
+  ['账号:someone@example.com'],
+  ['起始日期:[2026-08-01]  终止日期:[2026-08-31]'],
+  ['交易时间','交易分类','交易对方','对方账号','商品说明','收/支','金额','收/付款方式','交易状态','交易订单号','备注'],
+  ['2026-08-03 12:20:11','餐饮美食','美团平台商户','','午餐外卖','支出','35.50','余额宝','交易成功','T1',''],
+  ['2026-08-03 19:02:00','日用百货','天猫超市','','洗发水','支出','89.00','花呗','交易成功','T2',''],
+  ['2026-08-05 09:00:00','转账','张三','','红包','收入','200.00','余额','交易成功','T3',''],
+  ['2026-08-06 10:00:00','退款','某商户','','退货','支出','50.00','余额','退款成功','T4',''],
+  ['2026-08-07 10:00:00','转账','自己','','余额宝转出','不计收支','1000.00','余额','交易成功','T5',''],
+];
+var h = L.detectBillHeader(ali);
+ok(!!h, '在第 4 行认出支付宝表头');
+eq(h.idx, 3, '表头行号 3（前面 3 行是说明）');
+eq(h.cols.time, 0, '交易时间列');
+eq(h.cols.dir, 5, '收/支列');
+eq(h.cols.amount, 6, '金额列');
+eq(L.detectBillHeader([['无关','数据'],['1','2']]), null, '不是账单时返回 null');
+
+// ── 支付宝整表解析 ──
+var pa = L.parseBill(ali);
+ok(pa.ok, '识别成功');
+eq(pa.items.length, 3, '5 条里导入 3 条');
+eq(pa.skipped, 2, '退款成功与不计收支各跳过 1 条');
+eq(pa.items[0].t, 'e', '第 1 条是支出');
+eq(pa.items[0].c, 'food', '美团 → 餐饮');
+near(pa.items[0].a, 35.5, '金额 35.50');
+eq(pa.items[0].m, 8, '月份 8');
+eq(pa.items[0].d, 3, '日期 3');
+eq(pa.items[1].c, 'shop', '天猫 → 购物');
+eq(pa.items[2].t, 'i', '第 3 条是收入');
+eq(pa.items[2].c, 'gift', '红包 → 红包');
+
+// ── 微信格式：列名不同、金额带 ¥、中性交易用 / ──
+var wx = [
+  ['微信支付账单明细'],
+  ['微信昵称：某某'],
+  ['--------------------'],
+  ['交易时间','交易类型','交易对方','商品','收/支','金额(元)','支付方式','当前状态','交易单号','商户单号','备注'],
+  ['2026-08-02 08:30:00','商户消费','滴滴出行','网约车','支出','¥28.00','零钱','支付成功','W1','',''],
+  ['2026-08-04 20:00:00','转账','李四','转账','收入','¥500.00','零钱','已存入零钱','W2','',''],
+  ['2026-08-09 11:00:00','商户消费','某超市','日用','支出','¥66.60','零钱','已全额退款','W3','',''],
+  ['2026-08-10 11:00:00','零钱提现','/','提现','/','¥100.00','零钱','提现成功','W4','',''],
+];
+var pw = L.parseBill(wx);
+eq(pw.items.length, 2, '微信 4 条里导入 2 条');
+eq(pw.skipped, 2, '已全额退款与「/」各跳过 1 条');
+near(pw.items[0].a, 28, '金额去掉 ¥ 前缀 → 28');
+eq(pw.items[0].c, 'transit', '滴滴 → 交通');
+eq(pw.items[1].t, 'i', '转账收入');
+
+// ── 金额格式 ──
+near(L.parseBillAmount('¥35.50'), 35.5, '带 ¥ 前缀');
+near(L.parseBillAmount('1,234.56'), 1234.56, '带千分位');
+near(L.parseBillAmount('88元'), 88, '带元后缀');
+near(L.parseBillAmount(''), 0, '空值 → 0');
+near(L.parseBillAmount('abc'), 0, '非数字 → 0');
+
+// ── 无效状态判定 ──
+ok(L.isDeadStatus('退款成功'), '退款成功算无效');
+ok(L.isDeadStatus('已全额退款'), '已全额退款算无效');
+ok(L.isDeadStatus('交易关闭'), '交易关闭算无效');
+ok(L.isDeadStatus('对方已退还'), '对方已退还算无效');
+ok(!L.isDeadStatus('交易成功'), '交易成功有效');
+ok(!L.isDeadStatus('支付成功'), '支付成功有效');
+
+// ── 自动归类 ──
+[['美团外卖','food'],['星巴克','food'],['滴滴出行','transit'],['中国石化','transit'],
+ ['京东商城','shop'],['房租','home'],['中国移动','home'],['万达影城','fun'],
+ ['人民医院','med'],['当当图书','edu'],['某某不认识的店','eother']].forEach(function(x){
+  eq(L.guessCategory(x[0],'e'), x[1], '「'+x[0]+'」→ '+x[1]);
+});
+eq(L.guessCategory('工资发放','i'), 'side', '收入：工资 → 兼职');
+eq(L.guessCategory('微信红包','i'), 'gift', '收入：红包 → 红包');
+eq(L.guessCategory('余额宝收益','i'), 'invest', '收入：余额宝 → 理财');
+eq(L.guessCategory('不明来源','i'), 'iother', '收入：认不出 → 其他');
+
+// ── 去重指纹 ──
+var f1 = L.billFingerprint({d:3,t:'e',a:35.5,n:'美团'});
+var f2 = L.billFingerprint({d:3,t:'e',a:35.50,n:'美团'});
+eq(f1, f2, '同一笔的指纹一致（35.5 与 35.50 相同）');
+ok(f1 !== L.billFingerprint({d:4,t:'e',a:35.5,n:'美团'}), '不同日期指纹不同');
+ok(f1 !== L.billFingerprint({d:3,t:'i',a:35.5,n:'美团'}), '不同方向指纹不同');
+ok(f1 !== L.billFingerprint({d:3,t:'e',a:35.6,n:'美团'}), '不同金额指纹不同');
+
+// ── 跨月账单：各条记录带自己的年月 ──
+var cross = [
+  ['交易时间','交易对方','商品说明','收/支','金额','交易状态'],
+  ['2026-07-31 23:00:00','A','x','支出','10.00','交易成功'],
+  ['2026-08-01 01:00:00','B','y','支出','20.00','交易成功'],
+];
+var pc = L.parseBill(cross);
+eq(pc.items.length, 2, '跨月两条都保留');
+eq(pc.items[0].m, 7, '第 1 条属于 7 月');
+eq(pc.items[1].m, 8, '第 2 条属于 8 月');
+eq(pc.items[0].y, 2026, '年份解析正确');
+
+// ── 脏数据不应抛异常 ──
+ok(L.parseBill([]).ok === false, '空表返回 ok:false');
+ok(L.parseBill([['交易时间','收/支','金额'],['坏日期','支出','10']]).items.length === 0, '日期无法解析时跳过该行');
 
 // ── 汇总 ──
 console.log('\n' + '─'.repeat(46));
