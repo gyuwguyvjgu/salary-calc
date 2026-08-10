@@ -41,6 +41,10 @@
     --tabbar:      rgba(255,255,255,.94);
     --tabbar-line: rgba(0,0,0,.10);
     --build-bg:    rgba(0,0,0,.05);
+    --ic-a:        .14;       /* 图标淡色底透明度 */
+    /* 图标前景：teal/green 原色在白底上对比度不足，压暗；深色下再提亮回来 */
+    --ic-teal-fg:  #2a9fb5;
+    --ic-green-fg: #2ba84a;
     --tr-line:     #f0f0f3;   /* 逐月表行线 */
     --cal-rest:  #fafafc;
     --cal-other: #fafafc;
@@ -84,6 +88,9 @@
       --tabbar:      rgba(28,28,30,.94);
       --tabbar-line: rgba(255,255,255,.12);
       --build-bg:    rgba(255,255,255,.10);
+      --ic-a:        .26;       /* 纯黑底上 14% 太淡，提到 26% */
+      --ic-teal-fg:  #45cde4;
+      --ic-green-fg: #32d74b;
       --tr-line:     #232325;
       /* 日历里几块浅色底在纯黑上会刺眼，压暗但保留色相 */
       --cal-rest:  #161618;
@@ -186,19 +193,23 @@
      同一个概念固定同一个字和同一个色（底薪永远是蓝「薪」），
      重复出现形成秩序感，不会因为颜色多而显得杂。 */
   .row-icon {
-    width: 27px; height: 27px; flex-shrink: 0; border-radius: 7px;
+    width: 28px; height: 28px; flex-shrink: 0; border-radius: 8px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 600; line-height: 1; color: #fff;
+    font-size: 13px; font-weight: 600; line-height: 1;
   }
-  .ic-blue   { background: var(--blue); }
-  .ic-orange { background: var(--orange); }
-  .ic-teal   { background: #30b0c7; }
-  .ic-indigo { background: #5856d6; }
-  .ic-green  { background: var(--green); }
-  .ic-red    { background: var(--red); }
-  .ic-pink   { background: #ff2d55; }
-  .ic-purple { background: #af52de; }
-  .ic-gray   { background: #a8a8ad; }
+  /* 淡色底 + 彩色前景。透明度走 --ic-a 变量而不是在深色块里重写规则 ——
+     媒体查询不增加优先级，写成规则会被后面的基础规则吃掉。
+     SVG 用 stroke="currentColor"，颜色跟着这里的 color 走。 */
+  .row-icon svg { width: 17px; height: 17px; display: block; }
+  .ic-blue   { background: rgba(0,122,255,var(--ic-a));   color: var(--blue); }
+  .ic-orange { background: rgba(255,149,0,var(--ic-a));   color: var(--orange); }
+  .ic-teal   { background: rgba(48,176,199,var(--ic-a));  color: var(--ic-teal-fg); }
+  .ic-indigo { background: rgba(88,86,214,var(--ic-a));   color: #5856d6; }
+  .ic-green  { background: rgba(52,199,89,var(--ic-a));   color: var(--ic-green-fg); }
+  .ic-red    { background: rgba(255,59,48,var(--ic-a));   color: var(--red); }
+  .ic-pink   { background: rgba(255,45,85,var(--ic-a));   color: #ff2d55; }
+  .ic-purple { background: rgba(175,82,222,var(--ic-a));  color: #af52de; }
+  .ic-gray   { background: rgba(168,168,173,var(--ic-a)); color: var(--label-2); }
   /* 带图标的列表里分隔线从文字左边缘起，不穿过图标 */
   .icons .row::before { left: 55px; }
   .icons .row.row-block::before { left: 16px; }
@@ -493,6 +504,35 @@
   .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--sep-soft); overflow: hidden; }
   .bar > span { display: block; height: 100%; border-radius: 3px; background: var(--blue); }
 
+  /* ── 支出日历（热力图）──
+     用橙色浓淡表示当日花销：红色在本应用里已经代表负数与危险操作，
+     绿色代表收入，蓝色是交互色，橙色是唯一不冲突的暖色。 */
+  .sp-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+    background: var(--sep-soft); border-top: 1px solid var(--sep-soft);
+  }
+  .sp-cell {
+    background: var(--card); min-height: 52px; padding: 5px 2px 6px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    cursor: pointer; -webkit-tap-highlight-color: transparent;
+  }
+  .sp-cell.blank { background: var(--cal-other); cursor: default; }
+  .sp-day { font-size: 11.5px; font-weight: 500; color: var(--label-2); }
+  .sp-amt { font-size: 10.5px; font-weight: 600; color: var(--orange); font-variant-numeric: tabular-nums; }
+  .sp-inc { font-size: 9.5px; color: var(--green); }
+  .sp-cell.sel { box-shadow: inset 0 0 0 2px var(--blue); }
+  .sp-cell.sel .sp-day { color: var(--blue); font-weight: 700; }
+  /* 四档浓淡，按当月最大单日支出分级 */
+  .sp-l1 { background: rgba(255,149,0,.10); }
+  .sp-l2 { background: rgba(255,149,0,.22); }
+  .sp-l3 { background: rgba(255,149,0,.38); }
+  .sp-l4 { background: rgba(255,149,0,.55); }
+  .sp-legend {
+    display: flex; align-items: center; gap: 6px; justify-content: flex-end;
+    padding: 8px 16px 0; font-size: 11px; color: var(--label-3);
+  }
+  .sp-legend i { width: 14px; height: 10px; border-radius: 2px; }
+
   .footer { margin-top: 22px; text-align: center; font-size: 11.5px; color: var(--label-3); }
   /* 构建标识：平时不抢眼，需要核对版本时一眼能找到 */
   .build {
@@ -632,6 +672,23 @@
           <span class="row-value dark" id="flRate">0%</span>
         </div>
       </div>
+    </div>
+
+    <!-- 支出日历 -->
+    <div class="group">
+      <div class="group-title">每日支出<span id="spHint">颜色越深花得越多</span></div>
+      <div class="card">
+        <div class="cal-weekdays">
+          <div class="cal-day-name">一</div><div class="cal-day-name">二</div><div class="cal-day-name">三</div>
+          <div class="cal-day-name">四</div><div class="cal-day-name">五</div>
+          <div class="cal-day-name we">六</div><div class="cal-day-name we">日</div>
+        </div>
+        <div class="sp-grid" id="spGrid"></div>
+      </div>
+      <div class="sp-legend">
+        <span>少</span><i class="sp-l1"></i><i class="sp-l2"></i><i class="sp-l3"></i><i class="sp-l4"></i><span>多</span>
+      </div>
+      <div class="group-foot">点某天可只看当天的流水，并把下面的录入日期切到那天；再点一次取消。</div>
     </div>
 
     <!-- 记一笔 -->
@@ -2369,6 +2426,36 @@ function toggleBox(bodyId, iconId) {
 var flType = 'e';        // 当前录入的类型
 var flCat = 'food';      // 当前选中的分类
 var flMonth = 0;         // 正在查看的月份，0 表示还没初始化
+var flSelDay = 0;        // 日历上选中的日期，0 表示不筛选
+
+// 分类图标的 SVG 路径。刻意放在 DOM 层而不是 LEDGER_CATS 里 ——
+// 纯逻辑区不该掺presentation，测试也不必为图形数据背书。
+// stroke 用 currentColor，颜色由 .ic-* 的 color 决定。
+var CAT_SVG = {
+  food:    '<path d="M3.5 10.5h17c0 4.7-3.8 8.5-8.5 8.5s-8.5-3.8-8.5-8.5z"/><path d="M8 7.5c0-2 1.4-3.5 4-3.5s4 1.5 4 3.5"/>',
+  transit: '<path d="M6.5 16.5V19M17.5 16.5V19"/><rect x="3" y="6" width="18" height="10.5" rx="2.5"/><path d="M3 11h18"/><circle cx="7.5" cy="13.8" r=".9"/><circle cx="16.5" cy="13.8" r=".9"/>',
+  shop:    '<path d="M4.5 8h15l-1.2 11.5a1.5 1.5 0 0 1-1.5 1.3H7.2a1.5 1.5 0 0 1-1.5-1.3z"/><path d="M8.8 8V6a3.2 3.2 0 0 1 6.4 0v2"/>',
+  home:    '<path d="M4 10.5 12 4l8 6.5"/><path d="M6 10v9.5h12V10"/><path d="M10 19.5v-5.5h4v5.5"/>',
+  fun:     '<circle cx="9" cy="17" r="3"/><circle cx="18" cy="14.5" r="2.5"/><path d="M12 17V6.5l8-2v10"/>',
+  med:     '<path d="M12 5v14M5 12h14"/>',
+  edu:     '<path d="M3.5 6.5A2.5 2.5 0 0 1 6 4h5v15H6a2.5 2.5 0 0 0-2.5 2.5z"/><path d="M20.5 6.5A2.5 2.5 0 0 0 18 4h-5v15h5a2.5 2.5 0 0 1 2.5 2.5z"/>',
+  eother:  '<circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/>',
+  side:    '<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8.5 7V5.5A1.5 1.5 0 0 1 10 4h4a1.5 1.5 0 0 1 1.5 1.5V7"/><path d="M3 12.5h18"/>',
+  gift:    '<rect x="3.5" y="9" width="17" height="11.5" rx="2"/><path d="M3.5 13.5h17M12 9v11.5"/><path d="M12 9S9.5 4 7.5 5.2 10 9 12 9s4.5-2.6 2.5-3.8S12 9 12 9z"/>',
+  invest:  '<path d="M4 16.5 9.5 11l3.5 3.5L20 7.5"/><path d="M15.5 7.5H20V12"/>',
+  reimb:   '<path d="M6 3.5h12v17l-2.4-1.6-2.4 1.6-2.4-1.6L8.4 20.5 6 18.9z"/><path d="M9.5 8.5h5M9.5 12h5"/>',
+  iother:  '<circle cx="6" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="18" cy="12" r="1.6"/>',
+};
+
+// 分类图标 HTML。找不到 SVG 时退回汉字，不会渲染成空白方块。
+function catIcon(c) {
+  var g = CAT_SVG[c.key];
+  var inner = g
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" ' +
+      'stroke-linecap="round" stroke-linejoin="round">' + g + '</svg>'
+    : c.icon;
+  return '<span class="row-icon ' + c.color + '">' + inner + '</span>';
+}
 
 // 防 XSS：备注是用户自由输入，要插进 innerHTML，必须转义。
 // 这个 app 的数据只在本机，但备份文件可以互传，别留这个口子。
@@ -2391,8 +2478,7 @@ function buildCatGrid() {
   document.getElementById('flCatGrid').innerHTML = LEDGER_CATS[flType].map(function(c) {
     return '<div class="cat-cell' + (c.key === flCat ? ' on' : '') +
       '" onclick="pickCat(\'' + c.key + '\')">' +
-      '<span class="row-icon ' + c.color + '">' + c.icon + '</span>' +
-      '<span>' + c.name + '</span></div>';
+      catIcon(c) + '<span>' + c.name + '</span></div>';
   }).join('');
 }
 
@@ -2416,6 +2502,7 @@ function buildFlMonthSelect() {
 
 function onFlMonthChange() {
   flMonth = parseInt(selVal('flMonth'), 10) || 1;
+  flSelDay = 0;   // 换月后旧的选中日已无意义
   buildFlMonthSelect();
   renderLedger();
 }
@@ -2453,10 +2540,71 @@ function takeHomeOf(month) {
   return r ? r.net : 0;
 }
 
+// 点日历某天：既筛选流水，也把录入日期切过去。再点同一天取消筛选。
+function pickSpDay(d) {
+  flSelDay = (flSelDay === d) ? 0 : d;
+  if (flSelDay) {
+    var ds = document.getElementById('flDay');
+    if (ds) ds.value = String(flSelDay);
+  }
+  renderLedger();
+}
+
+// 支出热力日历。分档按当月最大单日支出取相对值 ——
+// 用绝对金额分档的话，月消费几百和几万的人看到的图会完全不同。
+function renderSpendCal(list) {
+  var total = daysInMonth(calYear, flMonth);
+  var byDay = {}, maxDay = 0;
+  for (var i = 0; i < list.length; i++) {
+    var e = list[i];
+    var d = parseInt(e.d, 10) || 1;
+    if (!byDay[d]) byDay[d] = { exp: 0, inc: 0 };
+    var a = ledgerAmount(e.a);
+    if (e.t === 'i') byDay[d].inc += a; else byDay[d].exp += a;
+  }
+  for (var k in byDay) if (byDay[k].exp > maxDay) maxDay = byDay[k].exp;
+
+  // 分档按「有支出的天数」排名取四分位，不按最大值线性缩放。
+  // 线性缩放下，房租这种一笔大额会把最大值拉满，其余每天全挤进最浅一档，
+  // 整月看起来只有一个深格 —— 排名分档不受极值影响，始终能分出层次。
+  var amts = [];
+  for (var kk in byDay) if (byDay[kk].exp > 0) amts.push(byDay[kk].exp);
+  amts.sort(function(a, b) { return a - b; });
+  var levelOf = function(v) {
+    if (v <= 0 || !amts.length) return '';
+    var rank = 0;
+    while (rank < amts.length && amts[rank] < v) rank++;
+    return ' sp-l' + Math.min(4, Math.max(1, Math.ceil((rank + 1) / amts.length * 4)));
+  };
+
+  var startDow = new Date(calYear, flMonth - 1, 1).getDay();
+  startDow = startDow === 0 ? 6 : startDow - 1;   // 周一为首列
+
+  var html = '';
+  for (var b = 0; b < startDow; b++) html += '<div class="sp-cell blank"></div>';
+
+  for (var day = 1; day <= total; day++) {
+    var rec = byDay[day] || { exp: 0, inc: 0 };
+    html += '<div class="sp-cell' + levelOf(rec.exp) + (flSelDay === day ? ' sel' : '') +
+      '" onclick="pickSpDay(' + day + ')">' +
+      '<span class="sp-day">' + day + '</span>' +
+      (rec.exp > 0 ? '<span class="sp-amt">' + fmt0(rec.exp) + '</span>' : '') +
+      (rec.inc > 0 ? '<span class="sp-inc">+' + fmt0(rec.inc) + '</span>' : '') +
+      '</div>';
+  }
+  var rem = (startDow + total) % 7;
+  if (rem) for (var t = 0; t < 7 - rem; t++) html += '<div class="sp-cell blank"></div>';
+
+  document.getElementById('spGrid').innerHTML = html;
+  document.getElementById('spHint').textContent =
+    maxDay > 0 ? '单日最高 ¥' + fmt0(maxDay) : '颜色越深花得越多';
+}
+
 function renderLedger() {
   if (!flMonth) return;
   var list = loadLedger(calYear, flMonth);
   var bal = ledgerBalance(list, takeHomeOf(flMonth));
+  renderSpendCal(list);
 
   document.getElementById('flBalance').textContent = '¥' + fmt(bal.balance);
   document.getElementById('flBalanceSub').textContent =
@@ -2477,7 +2625,7 @@ function renderLedger() {
     document.getElementById('flRankTotal').textContent = '共 ¥' + fmt0(bal.expense);
     document.getElementById('flRankList').innerHTML = rank.map(function(r) {
       return '<div class="row">' +
-        '<span class="row-icon ' + r.color + '">' + r.icon + '</span>' +
+        catIcon(r) +
         '<div class="row-main">' +
           '<div class="row-label">' + r.name + '<span class="sub">' + r.pct.toFixed(0) + '%</span></div>' +
           '<div class="bar" style="margin-top:5px"><span style="width:' + r.pct.toFixed(1) + '%"></span></div>' +
@@ -2488,14 +2636,24 @@ function renderLedger() {
   }
 
   // ── 流水列表：按日期倒序，同日归组 ──
-  document.getElementById('flCount').textContent = list.length ? list.length + ' 笔' : '';
+  // 筛选只影响显示，不影响上面的汇总与热力图 —— 那两处始终是整月口径
+  var shown = flSelDay
+    ? list.map(function(e, i) { return { e: e, i: i }; })
+          .filter(function(x) { return (parseInt(x.e.d, 10) || 1) === flSelDay; })
+    : list.map(function(e, i) { return { e: e, i: i }; });
+
+  document.getElementById('flCount').textContent = flSelDay
+    ? flMonth + '月' + flSelDay + '日 · ' + shown.length + ' 笔'
+    : (list.length ? list.length + ' 笔' : '');
+
   var box = document.getElementById('flList');
-  if (!list.length) {
-    box.innerHTML = '<div class="fl-empty">本月还没有记录</div>';
+  if (!shown.length) {
+    box.innerHTML = '<div class="fl-empty">' +
+      (flSelDay ? flMonth + ' 月 ' + flSelDay + ' 日没有记录' : '本月还没有记录') + '</div>';
     return;
   }
   // 带上原始下标再排序 —— 删除要按存储里的位置来，排序后的序号不能直接用
-  var idxed = list.map(function(e, i) { return { e: e, i: i }; });
+  var idxed = shown;
   idxed.sort(function(a, b) { return b.e.d - a.e.d || b.i - a.i; });
 
   var html = '', lastDay = null;
@@ -2506,7 +2664,7 @@ function renderLedger() {
       html += '<div class="fl-day">' + flMonth + ' 月 ' + e.d + ' 日</div>';
     }
     html += '<div class="row">' +
-      '<span class="row-icon ' + c.color + '">' + c.icon + '</span>' +
+      catIcon(c) +
       '<div class="row-main">' +
         '<div class="row-label">' + c.name + '</div>' +
         (e.n ? '<div class="row-desc">' + esc(e.n) + '</div>' : '') +
