@@ -14,7 +14,8 @@ var EXPORTS = ['CITIES', 'CITY_KEYS', 'CUSTOM_CITY_DEFAULT', 'socialInsOf', 'hou
   'TAX_ANNUAL', 'TAX_MONTHLY', 'HOLIDAYS', 'HOLIDAY_YEARS',
   'BASIC_DEDUCTION', 'MONTH_HOURS', 'YEB_CRITICAL', 'getDayMeta', 'taxOf', 'getMonthHoursFrom',
   'accumulateTax', 'basePayOf', 'otPayOf', 'yebTaxOf', 'yebBracket', 'daysInMonth', 'r2', 'ymd',
-  'yebCompare', 'grossForNet'];
+  'yebCompare', 'grossForNet',
+  'LEDGER_CATS', 'ledgerCat', 'ledgerAmount', 'ledgerSummary', 'ledgerRanking', 'ledgerBalance'];
 
 var L = {};
 new Function('__e', m[1] + '\n;' + EXPORTS.map(function(k) {
@@ -597,6 +598,86 @@ var gHigh = L.grossForNet(200000, LINKED, 0);
 ok(gHigh > 200000 && gHigh < 2000000, '超高目标仍能收敛到合理区间');
 near(netAt(gHigh, LINKED, 0), 200000, '超高目标同样闭环', 0.05);
 
+// ═══ 10. 收支流水 ═══
+section('10. 收支流水');
+
+var E = function(d, t, c, a, n) { return { d: d, t: t, c: c, a: a, n: n }; };
+var flow = [
+  E(1, 'e', 'food', 35.5),  E(1, 'e', 'transit', 6),
+  E(2, 'e', 'food', 42),    E(2, 'e', 'shop', 199),
+  E(3, 'i', 'side', 800),   E(3, 'e', 'food', 28.5),
+  E(5, 'i', 'gift', 200),   E(5, 'e', 'fun', 120),
+];
+
+var sum = L.ledgerSummary(flow);
+near(sum.expense, 431.00, '支出合计 35.5+6+42+199+28.5+120 = 431.00');
+near(sum.income, 1000.00, '收入合计 800+200 = 1,000.00');
+near(sum.net, 569.00, '净额 1000-431 = 569.00');
+eq(sum.count, 8, '流水笔数 8');
+near(sum.byCat['e:food'], 106.00, '餐饮归集 35.5+42+28.5 = 106.00');
+near(sum.byCat['i:side'], 800.00, '兼职归集 800.00');
+
+// 支出与收入都有「其他」，键必须带类型前缀才不会撞
+var bothOther = L.ledgerSummary([E(1,'e','eother',10), E(1,'i','iother',20)]);
+near(bothOther.byCat['e:eother'], 10, '支出其他单独归集');
+near(bothOther.byCat['i:iother'], 20, '收入其他单独归集');
+near(bothOther.expense, 10, '两个"其他"不会互相污染支出');
+near(bothOther.income, 20, '两个"其他"不会互相污染收入');
+
+// 排行：降序 + 百分比
+var rank = L.ledgerRanking(flow, 'e');
+eq(rank[0].key, 'shop', '支出榜首是购物 199');
+near(rank[0].amount, 199, '榜首金额 199');
+near(rank[1].amount, 120, '第二名娱乐 120');
+near(rank[2].amount, 106, '第三名餐饮 106');
+var pctSum = 0; rank.forEach(function(r) { pctSum += r.pct; });
+near(pctSum, 100, '各分类占比合计 100%', 0.1);
+ok(rank.every(function(r) { return r.amount > 0; }), '排行不含零金额分类');
+eq(L.ledgerRanking([], 'e').length, 0, '空流水排行为空');
+
+// 异常输入：负数、非数、超大值
+var bad = L.ledgerSummary([E(1,'e','food',-100), E(1,'e','food','abc'), E(1,'e','food',null), E(1,'e','food',1e12)]);
+near(bad.expense, 1e8, '负数/非数归 0，超大值夹到 1 亿');
+eq(L.ledgerAmount(-5), 0, '负金额归 0');
+eq(L.ledgerAmount('12.5'), 12.5, '字符串数字可解析');
+eq(L.ledgerAmount(undefined), 0, 'undefined 归 0');
+
+// 未知分类回退到「其他」而非崩溃或留空
+eq(L.ledgerCat('e', 'nope').key, 'eother', '未知支出分类回退到其他');
+eq(L.ledgerCat('i', 'nope').key, 'iother', '未知收入分类回退到其他');
+eq(L.ledgerCat('x', 'food').key, 'food', '类型非法时按支出解析');
+var unknown = L.ledgerSummary([E(1,'e','nope',50)]);
+near(unknown.byCat['e:eother'], 50, '未知分类的金额归入其他');
+
+// 结余：工资到手 + 额外收入 − 支出
+var bal = L.ledgerBalance(flow, 20000);
+near(bal.takeHome, 20000, '到手 20,000');
+near(bal.extraIncome, 1000, '额外收入 1,000');
+near(bal.inflow, 21000, '总流入 21,000');
+near(bal.balance, 20569, '结余 21000-431 = 20,569');
+near(bal.rate, 2.05, '支出占流入 431/21000 = 2.05%', 0.01);
+
+// 没有工资数据时不该出现 NaN
+var noWage = L.ledgerBalance(flow, 0);
+near(noWage.inflow, 1000, '无工资时流入只有额外收入');
+near(noWage.balance, 569, '无工资时结余 569');
+var empty = L.ledgerBalance([], 0);
+eq(empty.rate, 0, '流入为 0 时占比给 0 而非 NaN');
+eq(empty.balance, 0, '空账本结余 0');
+ok(!isNaN(L.ledgerBalance([], undefined).balance), 'takeHome 传 undefined 也不产生 NaN');
+
+// 分类表自洽
+['e','i'].forEach(function(t) {
+  var seen = {};
+  L.LEDGER_CATS[t].forEach(function(c) {
+    ok(!seen[c.key], t + ' 分类 key 不重复: ' + c.key);
+    seen[c.key] = 1;
+    ok(!!c.name && !!c.icon && !!c.color, t + ':' + c.key + ' 名称/图标/配色齐全');
+  });
+});
+ok(L.LEDGER_CATS.e.length >= 5, '支出分类不少于 5 个');
+ok(L.LEDGER_CATS.i.length >= 3, '收入分类不少于 3 个');
+
 // ── 汇总 ──
 console.log('\n' + '─'.repeat(46));
 if (fail === 0) {
@@ -606,3 +687,4 @@ if (fail === 0) {
   console.log('✗ ' + fail + ' 项失败 / 共 ' + (pass + fail) + ' 项');
   process.exit(1);
 }
+

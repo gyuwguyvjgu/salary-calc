@@ -450,6 +450,49 @@
   .note strong { font-weight: 600; color: var(--label); }
   .note .highlight-num { color: var(--label); font-weight: 600; }
 
+  /* ── 收支流水 ── */
+  /* 类型切换：小号 segmented control，支出/收入两态 */
+  .seg { display: flex; gap: 2px; padding: 2px; background: var(--field); border-radius: 8px; }
+  .seg button {
+    flex: 1; padding: 5px 10px; border: none; border-radius: 6px; cursor: pointer;
+    background: transparent; font-family: inherit; font-size: 13px; font-weight: 500;
+    color: var(--label-2); white-space: nowrap;
+  }
+  .seg button.on { background: var(--card); color: var(--label); font-weight: 600;
+                   box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+
+  /* 分类选格：一行四个，够容纳 8 个支出分类而不用滚动 */
+  .cat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px 16px; }
+  .cat-cell {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    padding: 8px 2px; border-radius: 10px; cursor: pointer; border: 1.5px solid transparent;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .cat-cell.on { border-color: var(--blue); background: var(--blue-tint); }
+  .cat-cell .row-icon { width: 30px; height: 30px; font-size: 14px; }
+  .cat-cell span { font-size: 11px; color: var(--label-2); }
+  .cat-cell.on span { color: var(--blue); font-weight: 600; }
+
+  /* 流水条目：左分类右金额，收入用绿色并带 + 号 */
+  .fl-amt { font-variant-numeric: tabular-nums; }
+  .fl-amt.exp { color: var(--label); }
+  .fl-amt.inc { color: var(--green); }
+  .fl-del {
+    margin-left: 10px; width: 24px; height: 24px; flex-shrink: 0; cursor: pointer;
+    border: none; border-radius: 50%; background: var(--field);
+    color: var(--label-3); font-size: 13px; line-height: 1; font-family: inherit;
+  }
+  .fl-del:active { background: var(--red); color: #fff; }
+  .fl-day {
+    padding: 6px 16px; font-size: 11.5px; font-weight: 600; color: var(--label-2);
+    background: var(--field);
+  }
+  .fl-empty { padding: 26px 16px; text-align: center; font-size: 13px; color: var(--label-3); }
+
+  /* 分类占比条 */
+  .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--sep-soft); overflow: hidden; }
+  .bar > span { display: block; height: 100%; border-radius: 3px; background: var(--blue); }
+
   .footer { margin-top: 22px; text-align: center; font-size: 11.5px; color: var(--label-3); }
   /* 构建标识：平时不抢眼，需要核对版本时一眼能找到 */
   .build {
@@ -566,6 +609,67 @@
 
     <button class="btn-apply" onclick="switchTab('salary')">查看薪资计算</button>
   </div><!-- /tab-calendar -->
+
+  <!-- ══ Tab: Ledger ══ -->
+  <div class="tab-panel" id="tab-ledger">
+
+    <!-- 本月收支总览 -->
+    <div class="group">
+      <div class="card hero">
+        <div class="hero-head">
+          <span class="hero-label">本月结余</span>
+          <span class="hero-pick">
+            <select id="flMonth" onchange="onFlMonthChange()"></select>
+          </span>
+        </div>
+        <div class="hero-value" id="flBalance">¥0.00</div>
+        <div class="hero-sub" id="flBalanceSub">工资到手 ¥0 · 额外收入 ¥0 · 支出 ¥0</div>
+        <div class="row">
+          <div class="row-main">
+            <div class="row-label">支出占总流入</div>
+            <div class="row-desc" id="flRateDesc">还没有记录</div>
+          </div>
+          <span class="row-value dark" id="flRate">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 记一笔 -->
+    <div class="group">
+      <div class="group-title">记一笔</div>
+      <div class="card list">
+        <div class="row">
+          <span class="row-label">类型</span>
+          <span class="seg" style="margin-left:auto;width:150px;">
+            <button id="flTypeE" class="on" onclick="setFlType('e')">支出</button>
+            <button id="flTypeI" onclick="setFlType('i')">收入</button>
+          </span>
+        </div>
+        <div class="cat-grid" id="flCatGrid"></div>
+        <div class="row"><span class="row-label">金额</span>
+          <span class="row-money"><input type="number" inputmode="decimal" class="row-input" id="flAmt" placeholder="0.00" step="0.01" min="0"></span></div>
+        <div class="row"><span class="row-label">日期</span>
+          <select class="row-select" id="flDay"></select></div>
+        <div class="row"><span class="row-label">备注</span>
+          <input type="text" class="row-input" id="flNote" placeholder="选填" maxlength="20" style="max-width:168px;text-align:right;"></div>
+        <button class="row row-action" onclick="addFlow()">添加</button>
+      </div>
+      <div class="group-foot" id="flAddHint">选分类、填金额即可。记录只存在本机，可在「薪资计算」页底部导出备份。</div>
+    </div>
+
+    <!-- 分类排行 -->
+    <div class="group" id="flRankGroup">
+      <div class="group-title">支出构成<span id="flRankTotal"></span></div>
+      <div class="card list" id="flRankList"></div>
+    </div>
+
+    <!-- 本月流水 -->
+    <div class="group">
+      <div class="group-title">本月流水<span id="flCount"></span></div>
+      <div class="card list" id="flList"></div>
+    </div>
+
+  </div><!-- /tab-ledger -->
 
   <!-- ══ Tab: Salary ══ -->
   <div class="tab-panel" id="tab-salary">
@@ -871,7 +975,7 @@
   <!-- 放在 tab 外面：两个页面都要能看到版本号，否则在日历页没法确认更新到没到 -->
   <div class="footer">
     仅供参考，实际以工资条为准
-    <span class="build" onclick="showBuild()" title="点一下看详情">5e8f9b50</span>
+    <span class="build" onclick="showBuild()" title="点一下看详情">249cfdcb</span>
   </div>
 </div>
 
@@ -879,6 +983,10 @@
   <button class="tab-btn active" onclick="switchTab('calendar', this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3.5"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg>
     <span>日历工时</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('ledger', this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 16.5z"/><path d="M3 9h13a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H3"/><circle cx="16.5" cy="12.5" r="1.2"/></svg>
+    <span>收支</span>
   </button>
   <button class="tab-btn" onclick="switchTab('salary', this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.6 8l3.4 4 3.4-4M12 12v5M9.2 12.6h5.6M9.2 15.1h5.6"/></svg>
@@ -1313,6 +1421,96 @@ function yebCompare(yeb, cumTaxable) {
   };
 }
 
+// ═══════════════════════════════════════════════════════════
+//  收支流水
+// ═══════════════════════════════════════════════════════════
+
+// 分类表。记录里存的是 key，所以以后改中文名不会让已存的流水失去归类。
+// icon/color 复用行首彩色图标那套，不引入新的视觉语言。
+var LEDGER_CATS = {
+  e: [
+    { key: 'food',    name: '餐饮', icon: '餐', color: 'ic-orange' },
+    { key: 'transit', name: '交通', icon: '交', color: 'ic-blue' },
+    { key: 'shop',    name: '购物', icon: '购', color: 'ic-pink' },
+    { key: 'home',    name: '居住', icon: '居', color: 'ic-teal' },
+    { key: 'fun',     name: '娱乐', icon: '娱', color: 'ic-purple' },
+    { key: 'med',     name: '医疗', icon: '医', color: 'ic-red' },
+    { key: 'edu',     name: '学习', icon: '学', color: 'ic-indigo' },
+    { key: 'eother',  name: '其他', icon: '其', color: 'ic-gray' },
+  ],
+  i: [
+    { key: 'side',    name: '兼职', icon: '兼', color: 'ic-green' },
+    { key: 'gift',    name: '红包', icon: '红', color: 'ic-pink' },
+    { key: 'invest',  name: '理财', icon: '理', color: 'ic-teal' },
+    { key: 'reimb',   name: '报销', icon: '报', color: 'ic-blue' },
+    { key: 'iother',  name: '其他', icon: '其', color: 'ic-gray' },
+  ],
+};
+
+// 找不到就回退到该类型的"其他"，不让历史数据或手改的存档把界面打空
+function ledgerCat(type, key) {
+  var list = LEDGER_CATS[type === 'i' ? 'i' : 'e'];
+  for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i];
+  return list[list.length - 1];
+}
+
+// 单笔金额规整：负数与非数一律归 0，上限 1 亿防手滑多打几个零把汇总撑爆
+function ledgerAmount(raw) {
+  return clamp(parseFloat(raw) || 0, 0, 1e8);
+}
+
+// 汇总一个月的流水。byCat 的键带类型前缀（e:food / i:side），
+// 因为支出与收入都有"其他"，只用 key 会撞在一起。
+function ledgerSummary(entries) {
+  var expense = 0, income = 0, byCat = {};
+  var list = entries || [];
+  for (var i = 0; i < list.length; i++) {
+    var e = list[i];
+    var a = ledgerAmount(e.a);
+    var t = e.t === 'i' ? 'i' : 'e';
+    if (t === 'i') income += a; else expense += a;
+    var k = t + ':' + ledgerCat(t, e.c).key;
+    byCat[k] = r2((byCat[k] || 0) + a);
+  }
+  return {
+    expense: r2(expense), income: r2(income), net: r2(income - expense),
+    byCat: byCat, count: list.length,
+  };
+}
+
+// 按金额降序的分类排行，附各自占该类型总额的百分比。
+// 总额为 0 时 pct 给 0 而不是 NaN。
+function ledgerRanking(entries, type) {
+  var t = type === 'i' ? 'i' : 'e';
+  var sum = ledgerSummary(entries);
+  var total = t === 'i' ? sum.income : sum.expense;
+  var out = [];
+  LEDGER_CATS[t].forEach(function(c) {
+    var amt = sum.byCat[t + ':' + c.key] || 0;
+    if (amt > 0) {
+      out.push({
+        key: c.key, name: c.name, icon: c.icon, color: c.color,
+        amount: amt, pct: total > 0 ? r2(amt / total * 100) : 0,
+      });
+    }
+  });
+  out.sort(function(a, b) { return b.amount - a.amount; });
+  return out;
+}
+
+// 结余口径：工资到手 + 额外收入 − 支出。
+// takeHome 由调用方从薪资计算那边传入，纯函数本身不碰 DOM。
+function ledgerBalance(entries, takeHome) {
+  var sum = ledgerSummary(entries);
+  var inflow = r2((takeHome || 0) + sum.income);
+  return {
+    takeHome: r2(takeHome || 0), extraIncome: sum.income, expense: sum.expense,
+    inflow: inflow, balance: r2(inflow - sum.expense),
+    // 支出占总流入的比例，流入为 0 时给 0
+    rate: inflow > 0 ? r2(sum.expense / inflow * 100) : 0,
+  };
+}
+
 // ══════════════ PURE-LOGIC END ══════════════
 
 // ═══════════════════════════════════════════════════════════
@@ -1331,6 +1529,19 @@ function loadHours(y, m) {
 function saveHours(y, m, data) {
   try { localStorage.setItem(hoursKey(y, m), JSON.stringify(data)); } catch (e) {}
 }
+// ── 流水存储：按月一个键，与工时同构 ──
+function ledgerKey(y, m) { return 'salary-ledger-' + y + '-' + pad2(m); }
+
+function loadLedger(y, m) {
+  try {
+    var v = JSON.parse(localStorage.getItem(ledgerKey(y, m)) || '[]');
+    return Array.isArray(v) ? v : [];   // 存档被手改坏时不让后续代码炸掉
+  } catch (e) { return []; }
+}
+function saveLedger(y, m, list) {
+  try { localStorage.setItem(ledgerKey(y, m), JSON.stringify(list)); } catch (e) {}
+}
+
 function isMonthFilled(y, m) {
   var d = loadHours(y, m);
   for (var k in d) if (d.hasOwnProperty(k)) return true;
@@ -1624,6 +1835,9 @@ function calc() {
   document.getElementById('ftGross').textContent = '¥' + fmt0(totGross);
   document.getElementById('ftTax').textContent = '¥' + fmt0(totTax);
   document.getElementById('ftNet').textContent = '¥' + fmt0(totNet);
+
+  // 工资变了结余也跟着变，但要防递归：renderLedger 里调 calcYear 而非 calc
+  if (flMonth) renderLedger();
 
   saveForm();
 }
@@ -2093,6 +2307,8 @@ function changeMonth(delta) {
   if (calMonth < 1)  { calMonth = 12; calYear--; setYearSelect(calYear); loadForm(); }
   renderCalendar();
   syncMonthSelect();
+  flMonth = calMonth;
+  buildFlMonthSelect();
   calc();
 }
 
@@ -2144,6 +2360,163 @@ function toggleBox(bodyId, iconId) {
   var open = body.style.display === 'none';
   body.style.display = open ? 'block' : 'none';
   if (icon) icon.textContent = open ? '▲' : '▼';
+}
+
+// ═══════════════════════════════════════════════════════════
+//  收支流水
+// ═══════════════════════════════════════════════════════════
+
+var flType = 'e';        // 当前录入的类型
+var flCat = 'food';      // 当前选中的分类
+var flMonth = 0;         // 正在查看的月份，0 表示还没初始化
+
+// 防 XSS：备注是用户自由输入，要插进 innerHTML，必须转义。
+// 这个 app 的数据只在本机，但备份文件可以互传，别留这个口子。
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function setFlType(t) {
+  flType = (t === 'i') ? 'i' : 'e';
+  document.getElementById('flTypeE').className = flType === 'e' ? 'on' : '';
+  document.getElementById('flTypeI').className = flType === 'i' ? 'on' : '';
+  flCat = LEDGER_CATS[flType][0].key;   // 换类型时旧分类不属于新类型，重置到首项
+  buildCatGrid();
+  renderLedger();
+}
+
+function buildCatGrid() {
+  document.getElementById('flCatGrid').innerHTML = LEDGER_CATS[flType].map(function(c) {
+    return '<div class="cat-cell' + (c.key === flCat ? ' on' : '') +
+      '" onclick="pickCat(\'' + c.key + '\')">' +
+      '<span class="row-icon ' + c.color + '">' + c.icon + '</span>' +
+      '<span>' + c.name + '</span></div>';
+  }).join('');
+}
+
+function pickCat(key) { flCat = key; buildCatGrid(); }
+
+function buildFlMonthSelect() {
+  var sel = document.getElementById('flMonth');
+  var html = '';
+  for (var m = 1; m <= 12; m++) html += '<option value="' + m + '">' + m + ' 月</option>';
+  sel.innerHTML = html;
+  sel.value = String(flMonth);
+  // 日期下拉跟着月份的实际天数走，2 月不该出现 31 日
+  var ds = document.getElementById('flDay');
+  var total = daysInMonth(calYear, flMonth);
+  var dh = '';
+  for (var d = 1; d <= total; d++) dh += '<option value="' + d + '">' + d + ' 日</option>';
+  var keep = parseInt(ds.value, 10);
+  ds.innerHTML = dh;
+  ds.value = String(keep >= 1 && keep <= total ? keep : Math.min(new Date().getDate(), total));
+}
+
+function onFlMonthChange() {
+  flMonth = parseInt(selVal('flMonth'), 10) || 1;
+  buildFlMonthSelect();
+  renderLedger();
+}
+
+function addFlow() {
+  var amt = ledgerAmount(document.getElementById('flAmt').value);
+  if (amt <= 0) { alert('先填金额。'); return; }
+  var list = loadLedger(calYear, flMonth);
+  list.push({
+    d: parseInt(selVal('flDay'), 10) || 1,
+    t: flType,
+    c: flCat,
+    a: amt,
+    n: (document.getElementById('flNote').value || '').slice(0, 20),
+  });
+  saveLedger(calYear, flMonth, list);
+  // 清金额与备注但保留分类和日期：连续记同类支出时少点几下
+  document.getElementById('flAmt').value = '';
+  document.getElementById('flNote').value = '';
+  renderLedger();
+}
+
+function delFlow(idx) {
+  var list = loadLedger(calYear, flMonth);
+  if (idx < 0 || idx >= list.length) return;
+  list.splice(idx, 1);
+  saveLedger(calYear, flMonth, list);
+  renderLedger();
+}
+
+// 当月工资到手：从薪资那边现算，两个页面共用同一套口径
+function takeHomeOf(month) {
+  var months = calcYear();
+  var r = months[month - 1];
+  return r ? r.net : 0;
+}
+
+function renderLedger() {
+  if (!flMonth) return;
+  var list = loadLedger(calYear, flMonth);
+  var bal = ledgerBalance(list, takeHomeOf(flMonth));
+
+  document.getElementById('flBalance').textContent = '¥' + fmt(bal.balance);
+  document.getElementById('flBalanceSub').textContent =
+    '工资到手 ¥' + fmt0(bal.takeHome) + ' · 额外收入 ¥' + fmt0(bal.extraIncome) +
+    ' · 支出 ¥' + fmt0(bal.expense);
+  document.getElementById('flRate').textContent = bal.rate.toFixed(1) + '%';
+  document.getElementById('flRateDesc').textContent = list.length
+    ? '流入 ¥' + fmt0(bal.inflow) + ' 中花掉了 ¥' + fmt0(bal.expense)
+    : '还没有记录';
+
+  // ── 分类排行（只看支出，收入构成意义不大）──
+  var rank = ledgerRanking(list, 'e');
+  var rg = document.getElementById('flRankGroup');
+  if (!rank.length) {
+    rg.style.display = 'none';
+  } else {
+    rg.style.display = '';
+    document.getElementById('flRankTotal').textContent = '共 ¥' + fmt0(bal.expense);
+    document.getElementById('flRankList').innerHTML = rank.map(function(r) {
+      return '<div class="row">' +
+        '<span class="row-icon ' + r.color + '">' + r.icon + '</span>' +
+        '<div class="row-main">' +
+          '<div class="row-label">' + r.name + '<span class="sub">' + r.pct.toFixed(0) + '%</span></div>' +
+          '<div class="bar" style="margin-top:5px"><span style="width:' + r.pct.toFixed(1) + '%"></span></div>' +
+        '</div>' +
+        '<span class="row-value dark">¥' + fmt(r.amount) + '</span>' +
+      '</div>';
+    }).join('');
+  }
+
+  // ── 流水列表：按日期倒序，同日归组 ──
+  document.getElementById('flCount').textContent = list.length ? list.length + ' 笔' : '';
+  var box = document.getElementById('flList');
+  if (!list.length) {
+    box.innerHTML = '<div class="fl-empty">本月还没有记录</div>';
+    return;
+  }
+  // 带上原始下标再排序 —— 删除要按存储里的位置来，排序后的序号不能直接用
+  var idxed = list.map(function(e, i) { return { e: e, i: i }; });
+  idxed.sort(function(a, b) { return b.e.d - a.e.d || b.i - a.i; });
+
+  var html = '', lastDay = null;
+  idxed.forEach(function(x) {
+    var e = x.e, c = ledgerCat(e.t, e.c), inc = e.t === 'i';
+    if (e.d !== lastDay) {
+      lastDay = e.d;
+      html += '<div class="fl-day">' + flMonth + ' 月 ' + e.d + ' 日</div>';
+    }
+    html += '<div class="row">' +
+      '<span class="row-icon ' + c.color + '">' + c.icon + '</span>' +
+      '<div class="row-main">' +
+        '<div class="row-label">' + c.name + '</div>' +
+        (e.n ? '<div class="row-desc">' + esc(e.n) + '</div>' : '') +
+      '</div>' +
+      '<span class="row-value fl-amt ' + (inc ? 'inc' : 'exp') + '">' +
+        (inc ? '+¥' : '−¥') + fmt(ledgerAmount(e.a)) + '</span>' +
+      '<button class="fl-del" onclick="delFlow(' + x.i + ')" aria-label="删除">✕</button>' +
+    '</div>';
+  });
+  box.innerHTML = html;
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2295,6 +2668,12 @@ function syncMonthSelect() {
   onHfToggle();
   renderCalendar();
   calc();
+
+  // 流水：默认看当前月，分类默认支出首项
+  flMonth = calMonth;
+  buildFlMonthSelect();
+  buildCatGrid();
+  renderLedger();
 })();
 </script>
 
