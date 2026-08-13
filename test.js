@@ -436,7 +436,7 @@ near(L.absenceDeductOf(FIXED, L.getMonthHoursFrom(2026, 8, aug)), FIXED,
 // 扣款不会超过固定工资，即不会倒欠
 ok(L.absenceDeductOf(FIXED, febH) <= FIXED, '扣款封顶为固定工资');
 
-// 加班费倍数。第一个参数是月固定工资（底薪+绩效+补贴），与缺勤扣款同基数
+// 加班费倍数。第一个参数是底薪，不含绩效补贴 —— 与缺勤扣款是两套基数
 near(L.otPayOf(15000, L.getMonthHoursFrom(2026, 8, { 5: 10 })), (15000 / 174) * 2 * 1.5,
      '工作日加班 2h 按 1.5 倍：258.62 元');
 near(L.otPayOf(15000, L.getMonthHoursFrom(2026, 8, { 8: 8 })), (15000 / 174) * 8 * 2,
@@ -445,15 +445,24 @@ near(L.otPayOf(15000, L.getMonthHoursFrom(2026, 10, { 1: 8 })), (15000 / 174) * 
      '法定节假日加班 8h 按 3 倍：2,068.97 元');
 near(L.otPayOf(15000, L.getMonthHoursFrom(2026, 10, { 10: 8 })), 0,
      '补班日上 8h 无加班费（旧版按 2 倍虚增 1,379.31 元）');
-near(L.otPayOf(0, L.getMonthHoursFrom(2026, 8, { 8: 8 })), 0, '月固定工资为 0 时加班费为 0');
+near(L.otPayOf(0, L.getMonthHoursFrom(2026, 8, { 8: 8 })), 0, '底薪为 0 时加班费为 0');
 
-// 加班与缺勤必须用同一个时薪：否则请 1 天假 + 加 1 天班会凭空少钱。
-// 工作日 8h 的 1 倍部分要靠 1.5 倍里的 1 拆出来比，这里直接比时薪本身。
+// 加班费只看底薪，绩效补贴填多少都不影响 —— 这是与缺勤扣款的关键差别
+near(L.otPayOf(20000, L.getMonthHoursFrom(2026, 8, { 8: 8 })), (20000 / 174) * 8 * 2,
+     '加班费按底薪 20000 算，不是按固定工资 23000');
+ok(L.otPayOf(20000, L.getMonthHoursFrom(2026, 8, { 8: 8 })) < (FIXED / 174) * 8 * 2,
+     '加班费低于「按底薪+绩效+补贴」算出来的金额');
+
+// 两套基数是公司口径，不是 bug：加班的时薪比请假的时薪低。
+// 这条断言就是防止后来者觉得「不对称」而顺手统一掉。
 var oneHourOff = L.getMonthHoursFrom(2026, 8, { 5: 7 });          // 少上 1h
-near(L.absenceDeductOf(FIXED, oneHourOff), FIXED / 174, '缺勤 1h 扣 1 倍时薪');
-near(L.otPayOf(FIXED, L.getMonthHoursFrom(2026, 8, { 8: 1 })) / 2,
-     L.absenceDeductOf(FIXED, oneHourOff),
-     '休息日加班 1h 的 2 倍工资 ÷2 恰等于缺勤 1h 的扣款——两边同基数');
+near(L.absenceDeductOf(FIXED, oneHourOff), FIXED / 174,
+     '缺勤 1h 按 (底薪+绩效+补贴) 扣 1 倍时薪 = 132.18');
+near(L.otPayOf(20000, L.getMonthHoursFrom(2026, 8, { 8: 1 })) / 2, 20000 / 174,
+     '加班 1h 的 1 倍部分只值底薪时薪 = 114.94');
+ok(L.otPayOf(20000, L.getMonthHoursFrom(2026, 8, { 8: 1 })) / 2
+     < L.absenceDeductOf(FIXED, oneHourOff),
+   '加班时薪(仅底薪) 低于 缺勤时薪(含绩效补贴)——两套基数，非 bug');
 
 // ═══ 7. 社保公积金参数 ═══
 section('7. 社保公积金');
@@ -1000,12 +1009,12 @@ near(ot.h3, 2, '法定假加班 2h');
 near(ot.hours, 21, '总加班 21h');
 near(ot.pay, 1500, '加班费合计 1,500');
 near(ot.rate, 71.43, '折合加班时薪 1500/21', 0.01);
-near(ot.normalRate, 100, '正常时薪 = 月固定工资 17400/174 = 100');
+near(ot.normalRate, 100, '正常时薪 = 底薪 17400/174 = 100');
 near(ot.days, 2.625, '折合 21/8 天');
 ok(ot.rate < ot.normalRate, '本例加班时薪低于正常时薪（可据此判断值不值）');
 var noOt = L.overtimeSummary([{ otPay: 0, hours: { ot15: 0, ot2: 0, ot3: 0 } }], 17400);
 eq(noOt.rate, 0, '没加班时时薪给 0 而非 NaN');
-eq(L.overtimeSummary([], 0).normalRate, 0, '没填工资时正常时薪给 0');
+eq(L.overtimeSummary([], 0).normalRate, 0, '没填底薪时正常时薪给 0');
 
 // ── 预算 ──
 var flow = [
