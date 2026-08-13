@@ -19,7 +19,8 @@ var EXPORTS = ['CITIES', 'CITY_KEYS', 'CUSTOM_CITY_DEFAULT', 'socialInsOf', 'hou
   'parseCSV', 'detectBillHeader', 'guessCategory', 'parseBillAmount', 'isDeadStatus',
   'parseBill', 'billFingerprint',
   'xmlUnescape', 'colRefToIndex', 'parseSharedStrings', 'excelSerialToDate',
-  'looksLikeSerialDate', 'parseSheetXml'];
+  'looksLikeSerialDate', 'parseSheetXml',
+  'sanitizeBackupText', 'backupDiagnosis'];
 
 var L = {};
 new Function('__e', m[1] + '\n;' + EXPORTS.map(function(k) {
@@ -878,6 +879,55 @@ var slash = L.parseBill([
 ]);
 eq(slash.items.length, 1, '斜杠分隔的日期能解析');
 eq(slash.items[0].m, 8, '斜杠日期月份正确');
+
+// ═══ 13. 备份文本规整 ═══
+section('13. 备份文本规整');
+
+var CH = String.fromCharCode;
+var BOM = CH(0xFEFF), ZW = CH(0x200B), ZW2 = CH(0x200D), NBSP = CH(0xA0);
+var LQ = CH(0x201C), RQ = CH(0x201D), NL2 = CH(10);
+
+var good = '{"_magic":"salary-calc-backup","_version":1,"data":{"salary-city":"sz"}}';
+
+// 正常内容原样通过
+eq(L.sanitizeBackupText(good), good, '正常 JSON 不被改动');
+ok(!!JSON.parse(L.sanitizeBackupText(good)), '规整后仍可解析');
+
+// 输入法/笔记应用把直引号自动纠正成弯引号 —— 最常见的一种损坏
+var curly = good.split('"').join(LQ);
+eq(JSON.parse(L.sanitizeBackupText(curly))._magic, 'salary-calc-backup', '弯双引号被还原');
+var curly2 = '{' + LQ + '_magic' + RQ + ':' + LQ + 'salary-calc-backup' + RQ + ',' + LQ + 'data' + RQ + ':{}}';
+eq(JSON.parse(L.sanitizeBackupText(curly2))._magic, 'salary-calc-backup', '左右弯引号成对还原');
+
+// 粘贴带进 BOM / 零宽字符 / 不换行空格
+ok(!!JSON.parse(L.sanitizeBackupText(BOM + good)), 'BOM 被去掉');
+ok(!!JSON.parse(L.sanitizeBackupText(ZW + good + ZW2)), '零宽字符被去掉');
+ok(!!JSON.parse(L.sanitizeBackupText(good.split(':').join(NBSP + ':'))), '不换行空格被换成普通空格');
+
+// 前后粘着说明文字
+ok(!!JSON.parse(L.sanitizeBackupText('这是我的备份：' + NL2 + good + NL2 + '以上')), '截取最外层花括号');
+ok(!!JSON.parse(L.sanitizeBackupText('  ' + NL2 + good + '  ' + NL2)), '首尾空白被去掉');
+
+// 不该动的：备注里的全角标点是合法内容，动了会改坏数据
+var cn = '{"_magic":"salary-calc-backup","data":{"note":"午饭，加饮料：奶茶"}}';
+var cleanedCn = L.sanitizeBackupText(cn);
+ok(cleanedCn.indexOf('，') >= 0, '全角逗号保留');
+ok(cleanedCn.indexOf('：') >= 0, '全角冒号保留');
+eq(JSON.parse(cleanedCn).data.note, '午饭，加饮料：奶茶', '含中文标点的备注内容完好');
+
+// ── 诊断信息 ──
+eq(L.backupDiagnosis('', ''), '内容是空的，可能没粘上。', '空内容有专门提示');
+eq(L.backupDiagnosis('   ', '   '), '内容是空的，可能没粘上。', '纯空白视同空');
+
+// 被截断：括号不配平、结尾不是 }
+var cut = good.slice(0, 40);
+var dCut = L.backupDiagnosis(cut, L.sanitizeBackupText(cut));
+ok(dCut.indexOf('截断') >= 0 || dCut.indexOf('配平') >= 0, '截断能被诊断出来 → ' + dCut);
+
+// 完全不相干的文本
+var junk = L.backupDiagnosis('hello world', L.sanitizeBackupText('hello world'));
+ok(junk.indexOf('_magic') >= 0, '缺 _magic 会被指出 → ' + junk);
+ok(L.backupDiagnosis(good, good).indexOf('长度') >= 0, '诊断里带长度');
 
 // ── 汇总 ──
 console.log('\n' + '─'.repeat(46));

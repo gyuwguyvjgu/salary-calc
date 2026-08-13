@@ -1079,7 +1079,7 @@
         <button class="row row-action danger" onclick="closeBk()">关闭</button>
       </div>
       <div class="group-foot">
-        手机上「下载」经常被浏览器或 App 拦掉且没有提示，所以这里把几种方式都列出来。<strong>「分享」或「复制」在手机上更可靠</strong>——复制后粘到备忘录、微信收藏或发给自己都行。
+        手机上「下载」经常被浏览器或 App 拦掉且没有提示，所以这里把几种方式都列出来。<strong>优先用「分享」或「复制全部内容」按钮</strong>——下面的文本框只有几行高，<strong>手动拖选一定选不全</strong>，粘回来就会提示解析失败。复制后粘到备忘录、微信收藏或发给自己都行。
       </div>
     </div>
 
@@ -1101,7 +1101,7 @@
   <!-- 放在 tab 外面：两个页面都要能看到版本号，否则在日历页没法确认更新到没到 -->
   <div class="footer">
     仅供参考，实际以工资条为准
-    <span class="build" onclick="showBuild()" title="点一下看详情">efc831e6</span>
+    <span class="build" onclick="showBuild()" title="点一下看详情">c8098353</span>
   </div>
 </div>
 
@@ -1880,6 +1880,48 @@ function billFingerprint(e) {
   return [e.d, e.t, r2(ledgerAmount(e.a)).toFixed(2), String(e.n || '').slice(0, 20)].join('|');
 }
 
+// ═══════════════════════════════════════════════════════════
+//  备份文本规整
+// ═══════════════════════════════════════════════════════════
+
+// 备份内容复制出去、经备忘录或聊天工具转一手再粘回来时，常被悄悄改动：
+// 输入法/笔记应用把直引号自动纠正成弯引号、粘贴带进 BOM 与零宽字符、
+// 空格被换成不换行空格、前后粘上「以下是我的备份：」之类的说明文字。
+// 这些都不该让恢复失败，解析前先规整一遍。
+//
+// 只规整结构性字符：弯引号在 JSON 里必然是被改坏的直引号。
+// 不碰全角逗号冒号 —— 那些在备注里是合法内容，动了会改坏用户数据。
+function sanitizeBackupText(raw) {
+  var s = String(raw == null ? '' : raw);
+  s = s.replace(/^﻿/, '');                        // BOM
+  s = s.replace(/[​-‍⁠]/g, '');         // 零宽字符
+  s = s.replace(/ /g, ' ');                       // 不换行空格
+  s = s.replace(/[“”„″＂]/g, '"');   // 弯双引号 / 全角引号
+  s = s.replace(/[‘’‛′]/g, "'");   // 弯单引号
+
+  // 前后可能粘着说明文字，截取最外层的花括号
+  var a = s.indexOf('{'), b = s.lastIndexOf('}');
+  if (a >= 0 && b > a) s = s.slice(a, b + 1);
+  return s.trim();
+}
+
+// 解析失败时给出可定位的信息，而不是笼统一句「解析失败」。
+// 用户把这段念给我听，就能判断是被截断、被改字符还是压根没粘上。
+function backupDiagnosis(raw, cleaned) {
+  var r = String(raw || ''), c = String(cleaned || '');
+  var bits = [];
+  bits.push('长度 ' + r.length);
+  if (!r.trim()) return '内容是空的，可能没粘上。';
+  if (c.indexOf('{') !== 0) bits.push('开头不是 {');
+  if (c.charAt(c.length - 1) !== '}') bits.push('结尾不是 }（很可能被截断了）');
+
+  // 花括号是否配平，不配平基本就是被截断
+  var open = (c.match(/\{/g) || []).length, close = (c.match(/\}/g) || []).length;
+  if (open !== close) bits.push('括号不配平 ' + open + '/' + close);
+  if (c.indexOf('_magic') < 0) bits.push('找不到 _magic 标记');
+  return bits.join('，');
+}
+
 // ══════════════ PURE-LOGIC END ══════════════
 
 // ═══════════════════════════════════════════════════════════
@@ -2359,6 +2401,13 @@ function exportData() {
   var p = document.getElementById('bkPanel');
   p.style.display = '';
   p.scrollIntoView({ block: 'start', behavior: 'smooth' });
+
+  // 文本框只有几行高，手动拖选必然选不全，而选不全粘回来就是「解析失败」。
+  // 一打开就把内容整体选中，用户直接用系统的「复制」即可。
+  var el = document.getElementById('bkText');
+  setTimeout(function() {
+    try { el.focus({ preventScroll: true }); el.setSelectionRange(0, el.value.length); } catch (e) {}
+  }, 350);
 }
 
 function closeBk() {
@@ -2430,9 +2479,16 @@ function applyPasteImport() {
 
 // 文件与粘贴两条路走同一套恢复逻辑。成功返回 true（此时页面即将重载）
 function restoreBackup(text) {
+  var cleaned = sanitizeBackupText(text);
   var payload;
-  try { payload = JSON.parse(String(text)); }
-  catch (e) { alert('内容不是有效的备份（JSON 解析失败）。'); return false; }
+  try { payload = JSON.parse(cleaned); }
+  catch (e) {
+    alert('这段内容解析不了。\n\n' + backupDiagnosis(text, cleaned) +
+          '\n\n最常见的原因是复制时没选全 —— 备份是一整段很长的文本，' +
+          '中间断开就用不了。回到导出面板点「复制全部内容」按钮，' +
+          '不要手动拖选。');
+    return false;
+  }
 
   if (!payload || payload._magic !== BACKUP_MAGIC || !payload.data) {
     alert('这不是本应用的备份内容。');
