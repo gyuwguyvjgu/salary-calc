@@ -533,6 +533,17 @@
   }
   .sp-legend i { width: 14px; height: 10px; border-radius: 2px; }
 
+  /* 备份文本框：手机上下载常被拦掉，得能直接选中复制 */
+  .bk-text {
+    width: 100%; height: 132px; margin-top: 4px;
+    padding: 10px 12px; border: 1px solid var(--sep-soft); border-radius: 9px;
+    background: var(--field); color: var(--label);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px; line-height: 1.5; resize: vertical; outline: none;
+    -webkit-user-select: text; user-select: text;
+  }
+  .bk-text:focus { border-color: var(--blue); }
+
   .footer { margin-top: 22px; text-align: center; font-size: 11.5px; color: var(--label-3); }
   /* 构建标识：平时不抢眼，需要核对版本时一眼能找到 */
   .build {
@@ -1045,13 +1056,44 @@
     <div class="group">
       <div class="group-title">数据备份<span>只存在本机</span></div>
       <div class="card list">
-        <button class="row row-action" onclick="exportData()">导出备份文件</button>
+        <button class="row row-action" onclick="exportData()">导出备份</button>
         <button class="row row-action" onclick="document.getElementById('importFile').click()">从备份文件恢复</button>
+        <button class="row row-action" onclick="openPasteImport()">粘贴备份内容恢复</button>
       </div>
-      <input type="file" id="importFile" accept="application/json,.json" style="display:none" onchange="importData(this)">
+      <input type="file" id="importFile" accept="application/json,.json,text/plain" style="display:none" onchange="importData(this)">
       <div class="group-foot">
         所有数据只保存在这台设备的浏览器里，没有服务器。清理浏览器数据、换手机、卸载重装都会丢失，建议导出一份留着。恢复会覆盖当前全部数据。
       </div>
+    </div>
+
+    <!-- 备份内容面板 -->
+    <div class="group" id="bkPanel" style="display:none;">
+      <div class="group-title">备份内容<span id="bkSize"></span></div>
+      <div class="card list">
+        <button class="row row-action" id="bkShareBtn" onclick="shareBackup()">分享 / 存到文件</button>
+        <button class="row row-action" onclick="copyBackup()">复制全部内容</button>
+        <button class="row row-action" id="bkDlBtn" onclick="downloadBackup()">下载文件</button>
+        <div class="row row-block" style="padding-top:2px">
+          <textarea class="bk-text" id="bkText" readonly onclick="this.select()"></textarea>
+        </div>
+        <button class="row row-action danger" onclick="closeBk()">关闭</button>
+      </div>
+      <div class="group-foot">
+        手机上「下载」经常被浏览器或 App 拦掉且没有提示，所以这里把几种方式都列出来。<strong>「分享」或「复制」在手机上更可靠</strong>——复制后粘到备忘录、微信收藏或发给自己都行。
+      </div>
+    </div>
+
+    <!-- 粘贴恢复面板 -->
+    <div class="group" id="pastePanel" style="display:none;">
+      <div class="group-title">粘贴备份内容</div>
+      <div class="card list">
+        <div class="row row-block" style="padding-bottom:2px">
+          <textarea class="bk-text" id="pasteText" placeholder="把之前复制的备份内容粘贴到这里"></textarea>
+        </div>
+        <button class="row row-action" onclick="applyPasteImport()">恢复</button>
+        <button class="row row-action danger" onclick="document.getElementById('pastePanel').style.display='none'">取消</button>
+      </div>
+      <div class="group-foot">恢复会覆盖当前全部数据。</div>
     </div>
 
   </div><!-- /tab-salary -->
@@ -1059,7 +1101,7 @@
   <!-- 放在 tab 外面：两个页面都要能看到版本号，否则在日历页没法确认更新到没到 -->
   <div class="footer">
     仅供参考，实际以工资条为准
-    <span class="build" onclick="showBuild()" title="点一下看详情">6f81709c</span>
+    <span class="build" onclick="showBuild()" title="点一下看详情">efc831e6</span>
   </div>
 </div>
 
@@ -2281,6 +2323,12 @@ function collectData() {
   return data;
 }
 
+// 手机上 <a download> 会静默失败：Capacitor 的 Android WebView 没接下载管理器、
+// iOS 的 PWA 对 blob 下载不可靠、内嵌浏览器直接拦截 —— 三者都不抛异常，
+// 所以 try/catch 兜不住，点了像没反应。
+// 不再赌哪种方式可用，把分享 / 复制 / 下载 / 手选文本都摆出来让环境自己决定。
+var bkText = '', bkName = '';
+
 function exportData() {
   var payload = {
     _magic: BACKUP_MAGIC,
@@ -2289,27 +2337,132 @@ function exportData() {
     exportedAt: new Date().toISOString(),
     data: collectData(),
   };
-  var keys = Object.keys(payload.data);
-  if (!keys.length) { alert('还没有任何数据可以导出。'); return; }
+  if (!Object.keys(payload.data).length) { alert('还没有任何数据可以导出。'); return; }
 
-  var text = JSON.stringify(payload, null, 2);
-  var stamp = payload.exportedAt.slice(0, 10);
-  var name = '薪资计算备份-' + stamp + '.json';
+  // 面板里要手选复制，紧凑格式更省篇幅，不用缩进
+  bkText = JSON.stringify(payload);
+  bkName = '薪资计算备份-' + payload.exportedAt.slice(0, 10) + '.json';
 
+  document.getElementById('bkText').value = bkText;
+  document.getElementById('bkSize').textContent =
+    Object.keys(payload.data).length + ' 项 · ' + Math.max(1, Math.round(bkText.length / 1024)) + ' KB';
+
+  // 分享按钮只在真能分享文件时才留着，否则点了也是没反应
+  var canShare = false;
   try {
-    var blob = new Blob([text], { type: 'application/json' });
+    canShare = !!(navigator.canShare && navigator.canShare({
+      files: [new File(['x'], 'a.json', { type: 'application/json' })],
+    }));
+  } catch (e) {}
+  document.getElementById('bkShareBtn').style.display = canShare ? '' : 'none';
+
+  var p = document.getElementById('bkPanel');
+  p.style.display = '';
+  p.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+function closeBk() {
+  document.getElementById('bkPanel').style.display = 'none';
+}
+
+function shareBackup() {
+  try {
+    var f = new File([bkText], bkName, { type: 'application/json' });
+    navigator.share({ files: [f], title: bkName })
+      .catch(function() { /* 用户取消分享不算错误，不打扰 */ });
+  } catch (e) {
+    alert('这个设备不支持分享文件，请改用「复制全部内容」。');
+  }
+}
+
+function copyBackup() {
+  var el = document.getElementById('bkText');
+  var done = function() { alert('已复制。粘到备忘录或发给自己保存即可。'); };
+  var fail = function() { alert('复制失败，请长按下面的文本框手动全选复制。'); };
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(bkText).then(done, function() { legacyCopy(el, done, fail); });
+  } else {
+    legacyCopy(el, done, fail);
+  }
+}
+
+// 老办法：选中文本域再 execCommand。iOS 上 readonly 会挡住选区，先临时摘掉
+function legacyCopy(el, done, fail) {
+  try {
+    el.removeAttribute('readonly');
+    el.focus();
+    el.setSelectionRange(0, el.value.length);
+    var ok = document.execCommand('copy');
+    el.setAttribute('readonly', 'readonly');
+    ok ? done() : fail();
+  } catch (e) { fail(); }
+}
+
+function downloadBackup() {
+  try {
+    var blob = new Blob([bkText], { type: 'application/json' });
     var url = URL.createObjectURL(blob);
     var a = document.createElement('a');
-    a.href = url; a.download = name;
+    a.href = url; a.download = bkName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     // 立刻 revoke 会让部分浏览器来不及取数据，延后释放
     setTimeout(function() { URL.revokeObjectURL(url); }, 4000);
   } catch (e) {
-    // 某些内嵌浏览器不支持下载，退回到让用户手动复制
-    prompt('当前浏览器不支持直接下载，请手动复制以下内容保存：', text);
+    alert('下载失败，请改用「复制全部内容」。');
   }
+}
+
+function openPasteImport() {
+  var p = document.getElementById('pastePanel');
+  p.style.display = '';
+  document.getElementById('pasteText').value = '';
+  p.scrollIntoView({ block: 'start', behavior: 'smooth' });
+}
+
+function applyPasteImport() {
+  var t = document.getElementById('pasteText').value.trim();
+  if (!t) { alert('先粘贴备份内容。'); return; }
+  if (restoreBackup(t)) document.getElementById('pastePanel').style.display = 'none';
+}
+
+// 文件与粘贴两条路走同一套恢复逻辑。成功返回 true（此时页面即将重载）
+function restoreBackup(text) {
+  var payload;
+  try { payload = JSON.parse(String(text)); }
+  catch (e) { alert('内容不是有效的备份（JSON 解析失败）。'); return false; }
+
+  if (!payload || payload._magic !== BACKUP_MAGIC || !payload.data) {
+    alert('这不是本应用的备份内容。');
+    return false;
+  }
+  var keys = Object.keys(payload.data).filter(function(k) {
+    return k.indexOf(BACKUP_PREFIX) === 0;
+  });
+  if (!keys.length) { alert('备份里没有可恢复的数据。'); return false; }
+
+  var when = (payload.exportedAt || '').slice(0, 10);
+  if (!confirm('将恢复 ' + keys.length + ' 项数据' + (when ? '（备份于 ' + when + '）' : '') +
+               '，当前数据会被全部覆盖。继续？')) return false;
+
+  try {
+    // 先清掉现有的 salary- 键，否则旧年度的残留会和备份混在一起
+    var stale = [];
+    for (var i = 0; i < localStorage.length; i++) {
+      var k = localStorage.key(i);
+      if (k && k.indexOf(BACKUP_PREFIX) === 0) stale.push(k);
+    }
+    stale.forEach(function(k) { localStorage.removeItem(k); });
+    keys.forEach(function(k) { localStorage.setItem(k, payload.data[k]); });
+  } catch (e) {
+    alert('写入失败，可能是存储空间已满。');
+    return false;
+  }
+  // 重载最省事，也避免各处状态半新半旧
+  location.reload();
+  return true;
 }
 
 function importData(input) {
@@ -2318,40 +2471,7 @@ function importData(input) {
   if (!file) return;
 
   var reader = new FileReader();
-  reader.onload = function() {
-    var payload;
-    try { payload = JSON.parse(String(reader.result)); }
-    catch (e) { alert('这个文件不是有效的备份（JSON 解析失败）。'); return; }
-
-    if (!payload || payload._magic !== BACKUP_MAGIC || !payload.data) {
-      alert('这个文件不是本应用的备份。');
-      return;
-    }
-    var keys = Object.keys(payload.data).filter(function(k) {
-      return k.indexOf(BACKUP_PREFIX) === 0;
-    });
-    if (!keys.length) { alert('备份里没有可恢复的数据。'); return; }
-
-    var when = (payload.exportedAt || '').slice(0, 10);
-    if (!confirm('将恢复 ' + keys.length + ' 项数据' + (when ? '（备份于 ' + when + '）' : '') +
-                 '，当前数据会被全部覆盖。继续？')) return;
-
-    try {
-      // 先清掉现有的 salary- 键，否则旧年度的残留会和备份混在一起
-      var stale = [];
-      for (var i = 0; i < localStorage.length; i++) {
-        var k = localStorage.key(i);
-        if (k && k.indexOf(BACKUP_PREFIX) === 0) stale.push(k);
-      }
-      stale.forEach(function(k) { localStorage.removeItem(k); });
-      keys.forEach(function(k) { localStorage.setItem(k, payload.data[k]); });
-    } catch (e) {
-      alert('写入失败，可能是存储空间已满。');
-      return;
-    }
-    // 重载最省事，也避免各处状态半新半旧
-    location.reload();
-  };
+  reader.onload = function() { restoreBackup(reader.result); };
   reader.onerror = function() { alert('读取文件失败。'); };
   reader.readAsText(file);
 }
