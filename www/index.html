@@ -934,6 +934,7 @@
         <div class="row"><span class="row-icon ic-orange">奖</span><span class="row-label">绩效奖金</span><span class="row-value dark" id="rowBonus">¥0.00</span></div>
         <div class="row"><span class="row-icon ic-teal">补</span><span class="row-label">补贴</span><span class="row-value dark" id="rowSubsidy">¥0.00</span></div>
         <div class="row"><span class="row-icon ic-purple">加</span><span class="row-label">加班费<span class="sub" id="otNote"></span></span><span class="row-value dark" id="rowOT">¥0.00</span></div>
+        <div class="row" id="rowAbsenceLine"><span class="row-icon ic-red">假</span><span class="row-label">缺勤扣款<span class="sub" id="absNote"></span></span><span class="row-value neg" id="rowAbsence">-¥0.00</span></div>
         <div class="row strong"><span class="row-icon ic-green">计</span><span class="row-label">税前月薪合计</span><span class="row-value pos" id="rowGross">¥0.00</span></div>
       </div>
     </div>
@@ -984,7 +985,7 @@
           <span class="row-money"><input type="number" inputmode="decimal" class="row-input" id="yearEndBonus" placeholder="0.00" step="0.01" min="0" oninput="calc()"></span></div>
       </div>
       <div class="group-foot">
-        底薪满勤全额，缺勤按 底薪÷21.75÷8 扣。奖金与补贴是每月默认值，可在「全年逐月明细」里按月覆盖。年终奖单独计税，不并入累计预扣。
+        底薪、绩效、补贴均按全额入账，请假按 (底薪+绩效+补贴)÷21.75÷8 单列「缺勤扣款」。奖金与补贴是每月默认值，可在「全年逐月明细」里按月覆盖。年终奖单独计税，不并入累计预扣。
       </div>
       <div class="crit-warn hidden" id="yebWarn"></div>
     </div>
@@ -1176,7 +1177,8 @@
           <li><strong>个税</strong>：累计预扣预缴法。累计应纳税所得额 = 累计收入 − <span class="highlight-num">5,000×月份数</span> − 累计社保公积金 − 累计专项附加扣除；本月税 = 累计应纳税额 − 已预扣累计额，结果为负时按 0 计，多缴部分次年汇算清缴退还</li>
           <li><strong>社保</strong>：个人只缴养老、医疗、失业三项，工伤与生育由单位承担。各险种按自己的基数上下限分别夹逼——深圳、广州三险区间互不相同，北京、上海三险共用一个区间。费率与区间随所选城市变化，具体数值见「社保 · 公积金」分组下方说明</li>
           <li><strong>公积金</strong>：基数默认按本人工资（底薪＋奖金＋补贴），再夹到所选城市的上下限内；个人与公司比例可分别设定，上海 5%~7%、其余城市 5%~12%。<strong>只有个人部分从工资里扣</strong>，公司部分不影响到手金额但同样进你的账户，可以关闭「缴纳公积金」</li>
-          <li><strong>加班费</strong>：底薪 ÷ <span class="highlight-num">21.75</span> ÷ 8 × 时数 × 倍数；工作日超 8h 部分 1.5 倍、休息日 2 倍、法定节假日 3 倍</li>
+          <li><strong>缺勤扣款</strong>：（底薪＋绩效＋补贴）÷ <span class="highlight-num">21.75</span> ÷ 8 × 请假时数；固定工资仍显示全额，请假单列一行扣除，整月零出勤即扣光且不会倒欠</li>
+          <li><strong>加班费</strong>：（底薪＋绩效＋补贴）÷ <span class="highlight-num">21.75</span> ÷ 8 × 时数 × 倍数；工作日超 8h 部分 1.5 倍、休息日 2 倍、法定节假日 3 倍</li>
           <li><strong>调休</strong>：法定节假日（3 倍）、调休放假日（2 倍）、调休补班日（按正常工作日、无加班费）三者已分别标注</li>
           <li><strong>年终奖</strong>：÷12 查按月换算税率表定税率，再按 <span class="highlight-num">全额×税率−速算扣除数</span> 计税，不并入累计预扣</li>
         </ul>
@@ -1583,20 +1585,28 @@ function accumulateTax(grossList, si, hf, specMonthly, active) {
   return out;
 }
 
-// 月薪制底薪折算：满勤即全额，缺勤按 21.75 天口径扣。
-// 不用"实际工时×时薪"，否则工作日多的月份会算出超过底薪的金额；
-// 又因 21.75 是全年月均值，短月（春节月应出勤仅 128h）零出勤会算出正数，
-// 所以缺勤扣满应出勤时直接归零。
-function basePayOf(base, hours) {
-  if (base <= 0) return 0;
-  if (hours.absent >= hours.required) return 0;
-  return Math.max(0, base - (base / MONTH_HOURS) * hours.absent);
+// 缺勤（请假）扣款。
+//
+// 扣款时薪的基数是「底薪 + 绩效 + 补贴」的月固定工资，不是只按底薪 ——
+// 请一天假扣掉的是那一天的全部固定收入，绩效与补贴同样按比例扣。
+//   每小时扣款 = (底薪 + 绩效 + 补贴) ÷ 21.75 ÷ 8
+//   扣款额     = 每小时扣款 × 缺勤工时
+//
+// 不用「实际工时 × 时薪」正着算，否则工作日多的月份会算出超过月薪的金额。
+// 又因 21.75 是全年月均值，短月（春节月应出勤仅 128h）按时数折算，
+// 零出勤时会剩下正数余额，与「整月没上班」矛盾，所以缺勤扣满应出勤时直接扣光。
+function absenceDeductOf(fixedPay, hours) {
+  if (fixedPay <= 0 || hours.absent <= 0) return 0;
+  if (hours.required > 0 && hours.absent >= hours.required) return r2(fixedPay);
+  return Math.min(r2(fixedPay), r2((fixedPay / MONTH_HOURS) * hours.absent));
 }
 
-// 加班费：工作日超 8h 部分 1.5 倍、休息日 2 倍、法定节假日 3 倍
-function otPayOf(base, hours) {
-  if (base <= 0) return 0;
-  return (base / MONTH_HOURS) * (hours.ot15 * 1.5 + hours.ot2 * 2 + hours.ot3 * 3);
+// 加班费：工作日超 8h 部分 1.5 倍、休息日 2 倍、法定节假日 3 倍。
+// 时薪基数与缺勤扣款同口径（底薪+绩效+补贴）——同一小时若扣得比补得多，
+// 请一天假再加一天班就会凭空少钱，那是算错而不是公司抠。
+function otPayOf(fixedPay, hours) {
+  if (fixedPay <= 0) return 0;
+  return (fixedPay / MONTH_HOURS) * (hours.ot15 * 1.5 + hours.ot2 * 2 + hours.ot3 * 3);
 }
 
 // 全年一次性奖金：÷12 只用于查税率档位
@@ -2090,8 +2100,8 @@ function annualSummary(salaryMonths, ledgers, yebNet) {
 }
 
 // 加班统计。折合时薪 = 加班费 ÷ 加班时数，用来回答「加这些班值不值」：
-// 拿它跟正常时薪（底薪÷174）比，就知道加班是赚了还是在贱卖时间。
-function overtimeSummary(salaryMonths, baseSalary) {
+// 拿它跟正常时薪（月固定工资÷174）比，就知道加班是赚了还是在贱卖时间。
+function overtimeSummary(salaryMonths, fixedPay) {
   var h15 = 0, h2 = 0, h3 = 0, pay = 0;
   (salaryMonths || []).forEach(function(x) {
     if (!x || !x.hours) return;
@@ -2099,7 +2109,7 @@ function overtimeSummary(salaryMonths, baseSalary) {
     pay += x.otPay;
   });
   var hours = r2(h15 + h2 + h3);
-  var normalRate = baseSalary > 0 ? r2(baseSalary / MONTH_HOURS) : 0;
+  var normalRate = fixedPay > 0 ? r2(fixedPay / MONTH_HOURS) : 0;
   return {
     h15: r2(h15), h2: r2(h2), h3: r2(h3), hours: hours,
     pay: r2(pay),
@@ -2407,13 +2417,16 @@ function calcYear() {
   for (var m = 1; m <= 12; m++) {
     var h = getMonthHours(calYear, m);
 
-    var basePay = basePayOf(base, h);
-    var otPay = otPayOf(base, h);
     var bonus = monthValue(m, 'bonus', bonusDefault);
     var sub = monthValue(m, 'subsidy', subDefault);
-    var gross = basePay + otPay + bonus + sub;
+    // 固定工资全额入账，请假单独列一行扣掉 —— 与工资条的写法一致，
+    // 也让「扣了多少」一眼可见，而不是混在底薪里看不出来
+    var fixed = base + bonus + sub;
+    var absence = absenceDeductOf(fixed, h);
+    var otPay = otPayOf(fixed, h);
+    var gross = Math.max(0, fixed + otPay - absence);
 
-    months.push({ m: m, hours: h, basePay: basePay, otPay: otPay,
+    months.push({ m: m, hours: h, basePay: base, otPay: otPay, absence: absence,
                   bonus: bonus, sub: sub, gross: gross });
     grossList.push(gross);
   }
@@ -2496,6 +2509,10 @@ function renderHero(cur, yeb, tot) {
 // 当月收入与扣款明细
 function renderMonthDetail(cur) {
   setMoney('rowBase', cur.basePay);
+  // 请假只在「缺勤扣款」一行体现，底薪/绩效/补贴都按全额显示
+  var hasAbs = cur.absence > 0;
+  $('rowAbsenceLine').style.display = hasAbs ? '' : 'none';
+  setText('rowAbsence', fmtNeg(cur.absence));
   setMoney('rowBonus', cur.bonus);
   setMoney('rowSubsidy', cur.sub);
   setMoney('rowOT', cur.otPay);
@@ -2506,8 +2523,11 @@ function renderMonthDetail(cur) {
   setText('rowTotalDeduct', fmtNeg(cur.si + cur.hf + cur.tax));
 
   var h = cur.hours;
-  setText('attendNote', h.absent > 0
-    ? '（缺勤 ' + h.absent.toFixed(1) + 'h，应出勤 ' + h.required + 'h）' : '（满勤）');
+  setText('attendNote', h.absent > 0 ? '' : '（满勤）');
+  // 把扣款口径写在这一行，用户能直接对上工资条
+  var fixedPay = cur.basePay + cur.bonus + cur.sub;
+  setText('absNote', h.absent > 0
+    ? '（' + h.absent.toFixed(1) + 'h × ' + fmt(fixedPay / MONTH_HOURS) + '/h）' : '');
 
   var parts = [];
   if (h.ot15 > 0) parts.push('工作日 ' + h.ot15.toFixed(1) + 'h');
@@ -3683,7 +3703,12 @@ function renderYear() {
   var months = calcYear();
   var yeb = calcYearEndBonus();
   var an = annualSummary(months, loadYearLedgers(calYear), yeb.net);
-  var ot = overtimeSummary(months, num('baseSalary'));
+  // 正常时薪的基数与加班费、缺勤扣款一致：底薪+绩效+补贴的月均值。
+  // 取月均而不是 num('baseSalary')，是因为绩效/补贴可以在逐月明细里按月覆盖。
+  var fixedAvg = months.length
+    ? months.reduce(function (s, x) { return s + x.basePay + x.bonus + x.sub; }, 0) / months.length
+    : 0;
+  var ot = overtimeSummary(months, fixedAvg);
 
   setText('yrLabel', calYear + ' 年');
   setMoney('yrBalance', an.balance);
@@ -3726,7 +3751,7 @@ function renderYear() {
   setMoney('yrOtPay', ot.pay);
   setMoney('yrOtRate', ot.rate);
   setText('yrOtCompare', ot.hours <= 0 ? '今年还没有加班记录'
-    : ot.normalRate <= 0 ? '填了底薪才能比较'
+    : ot.normalRate <= 0 ? '填了工资才能比较'
     : ot.rate >= ot.normalRate
       ? '高于正常时薪 ¥' + fmt(ot.normalRate) + '，加班划算'
       : '低于正常时薪 ¥' + fmt(ot.normalRate) + '，等于在贱卖时间');
