@@ -306,6 +306,7 @@
   .ratio-bar .fill { display: block; height: 100%; border-radius: 3px; background: var(--red); transition: width .3s ease; }
   #deductRatio { font-size: 15px; font-weight: 600; color: var(--label); }
 
+  .si-company { color: var(--label-3); }
   .si-detail { font-size: 12.5px; line-height: 1.85; color: var(--label-2); }
 
   /* ── 提示条 ── */
@@ -624,7 +625,7 @@
       <div class="select-bar" id="selectBar" style="display:none;">
         <span class="cnt" id="selectCount">已选 0 天</span>
         <input type="number" id="batchHoursVal" value="8" step="0.5" min="0" max="24">
-        <button class="ok" onclick="applyBatchHours(document.getElementById('batchHoursVal').value)">应用</button>
+        <button class="ok" onclick="applyBatchHours($('batchHoursVal').value)">应用</button>
         <button class="no" onclick="exitSelectMode()">取消</button>
       </div>
       <div class="group-foot">
@@ -729,7 +730,7 @@
     <div class="group">
       <div class="group-title">导入账单<span>支付宝 / 微信 / 银行</span></div>
       <div class="card list">
-        <button class="row row-action" onclick="document.getElementById('billFile').click()">选择账单文件</button>
+        <button class="row row-action" onclick="$('billFile').click()">选择账单文件</button>
       </div>
       <input type="file" id="billFile" accept=".csv,text/csv,text/plain" style="display:none" onchange="onBillFile(this)">
       <div class="group-foot">
@@ -1057,7 +1058,7 @@
       <div class="group-title">数据备份<span>只存在本机</span></div>
       <div class="card list">
         <button class="row row-action" onclick="exportData()">导出备份</button>
-        <button class="row row-action" onclick="document.getElementById('importFile').click()">从备份文件恢复</button>
+        <button class="row row-action" onclick="$('importFile').click()">从备份文件恢复</button>
         <button class="row row-action" onclick="openPasteImport()">粘贴备份内容恢复</button>
       </div>
       <input type="file" id="importFile" accept="application/json,.json,text/plain" style="display:none" onchange="importData(this)">
@@ -1091,7 +1092,7 @@
           <textarea class="bk-text" id="pasteText" placeholder="把之前复制的备份内容粘贴到这里"></textarea>
         </div>
         <button class="row row-action" onclick="applyPasteImport()">恢复</button>
-        <button class="row row-action danger" onclick="document.getElementById('pastePanel').style.display='none'">取消</button>
+        <button class="row row-action danger" onclick="$('pastePanel').style.display='none'">取消</button>
       </div>
       <div class="group-foot">恢复会覆盖当前全部数据。</div>
     </div>
@@ -1930,28 +1931,58 @@ function backupDiagnosis(raw, cleaned) {
 
 var calYear, calMonth;
 
+// ── DOM 小工具 ──
+// 页面里有一百多处「取元素、写文本」，逐个写 getElementById 既啰嗦又容易
+// 因为拼错 id 而静默失效。这三个包装让调用处只剩一行，且元素不存在时不炸。
+function $(id) { return document.getElementById(id); }
+
+function setText(id, s) {
+  var el = $(id);
+  if (el) el.textContent = s;
+}
+
+// 金额统一在这里加 ¥ 与千分位，避免 32 处各写各的
+function setMoney(id, v, opt) {
+  var sign = (opt && opt.neg) ? '-' : (opt && opt.plus && v > 0) ? '+' : '';
+  setText(id, sign + '¥' + ((opt && opt.round) ? fmt0(v) : fmt(v)));
+}
+
+// ── localStorage 包装 ──
+// 隐私模式、存储配额满、被禁用时读写都会抛异常。原先每处各写一遍 try/catch，
+// 共 12 处；集中在这里，调用方按普通取值用即可。
+function lsGet(key, fallback) {
+  try {
+    var v = localStorage.getItem(key);
+    return v === null ? fallback : v;
+  } catch (e) { return fallback; }
+}
+function lsSet(key, val) {
+  try { localStorage.setItem(key, val); return true; } catch (e) { return false; }
+}
+function lsDel(key) {
+  try { localStorage.removeItem(key); } catch (e) {}
+}
+// 读 JSON，坏数据不该让整页崩掉
+function lsJson(key, fallback) {
+  try {
+    var v = JSON.parse(lsGet(key, ''));
+    return v === null || v === undefined ? fallback : v;
+  } catch (e) { return fallback; }
+}
+
 function hoursKey(y, m) { return 'salary-hours-' + y + '-' + pad2(m); }
 function formKey(y)     { return 'salary-form-' + y; }
 
-function loadHours(y, m) {
-  try { return JSON.parse(localStorage.getItem(hoursKey(y, m)) || '{}'); }
-  catch (e) { return {}; }
-}
-function saveHours(y, m, data) {
-  try { localStorage.setItem(hoursKey(y, m), JSON.stringify(data)); } catch (e) {}
-}
+function loadHours(y, m) { return lsJson(hoursKey(y, m), {}); }
+function saveHours(y, m, data) { lsSet(hoursKey(y, m), JSON.stringify(data)); }
 // ── 流水存储：按月一个键，与工时同构 ──
 function ledgerKey(y, m) { return 'salary-ledger-' + y + '-' + pad2(m); }
 
 function loadLedger(y, m) {
-  try {
-    var v = JSON.parse(localStorage.getItem(ledgerKey(y, m)) || '[]');
-    return Array.isArray(v) ? v : [];   // 存档被手改坏时不让后续代码炸掉
-  } catch (e) { return []; }
+  var v = lsJson(ledgerKey(y, m), []);
+  return Array.isArray(v) ? v : [];     // 存档被手改坏时不让后续代码炸掉
 }
-function saveLedger(y, m, list) {
-  try { localStorage.setItem(ledgerKey(y, m), JSON.stringify(list)); } catch (e) {}
-}
+function saveLedger(y, m, list) { lsSet(ledgerKey(y, m), JSON.stringify(list)); }
 
 function isMonthFilled(y, m) {
   var d = loadHours(y, m);
@@ -1982,17 +2013,16 @@ var monthOverrides = {};
 function saveForm() {
   var data = { overrides: monthOverrides };
   FORM_FIELDS.forEach(function(id) {
-    var el = document.getElementById(id);
+    var el = $(id);
     if (el) data[id] = el.value;
   });
-  try { localStorage.setItem(formKey(calYear), JSON.stringify(data)); } catch (e) {}
+  lsSet(formKey(calYear), JSON.stringify(data));
 }
 
 function loadForm() {
-  var data = {};
-  try { data = JSON.parse(localStorage.getItem(formKey(calYear)) || '{}'); } catch (e) {}
+  var data = lsJson(formKey(calYear), {});
   FORM_FIELDS.forEach(function(id) {
-    var el = document.getElementById(id);
+    var el = $(id);
     if (!el) return;
     el.value = data.hasOwnProperty(id) ? data[id] : (FORM_DEFAULTS[id] || '');
     // 给 select 赋一个不在 option 里的值（如空串）会让 selectedIndex 变 -1、
@@ -2014,11 +2044,11 @@ function getMonthHours(y, m) {
 //  薪资计算
 // ═══════════════════════════════════════════════════════════
 
-function num(id) { return parseFloat(document.getElementById(id).value) || 0; }
-function intv(id) { return parseInt(document.getElementById(id).value, 10) || 0; }
+function num(id) { return parseFloat($(id).value) || 0; }
+function intv(id) { return parseInt($(id).value, 10) || 0; }
 
 function selVal(id) {
-  var el = document.getElementById(id);
+  var el = $(id);
   return el ? el.value : '';
 }
 
@@ -2130,127 +2160,151 @@ function calcYearEndBonus() {
 //  渲染
 // ═══════════════════════════════════════════════════════════
 
+// calc() 原先 122 行，一个函数同时负责结果卡、当月明细、社保公积金、
+// 公司成本、年终奖、计税对比、逐月表与流水刷新。改成编排层 + 若干职责单一的
+// 渲染函数：每段各自只碰自己那组 DOM，加新分组时不必再往一个大函数里塞。
 function calc() {
   var months = calcYear();
-  var sel = parseInt(document.getElementById('taxMonth').value, 10) || 1;
+  var sel = parseInt($('taxMonth').value, 10) || 1;
   var cur = months[sel - 1];
-  var yebInfo = calcYearEndBonus();
+  var yeb = calcYearEndBonus();
+  var si = getSocialIns();
+  var hf = getHousingFund();
+  var tot = sumYear(months);
 
-  var siInfo = getSocialIns();
-  var hfInfo = getHousingFund();
-
-  // ── 结果卡 ──
-  document.getElementById('preTaxSalary').textContent = '¥' + fmt(cur.gross);
-  document.getElementById('afterTaxSalary').textContent = '¥' + fmt(cur.net);
-
-  var totGross = 0, totNet = 0, totTax = 0, totOT = 0, totBonus = 0, totSub = 0;
-  months.forEach(function(x) {
-    totGross += x.gross; totNet += x.net; totTax += x.tax;
-    totOT += x.otPay; totBonus += x.bonus; totSub += x.sub;
-  });
-  // 「含年终奖」的口径由上方税后那行写全，这里只带金额，免得同一张卡里重复两遍
-  document.getElementById('preTaxAnnual').textContent =
-    '年度 ¥' + fmt0(totGross + yebInfo.yeb);
-  document.getElementById('afterTaxAnnual').textContent =
-    '年度合计（含年终奖）¥' + fmt0(totNet + yebInfo.net);
-
-  // ── 当月明细 ──
-  document.getElementById('rowBase').textContent = '¥' + fmt(cur.basePay);
-  document.getElementById('rowBonus').textContent = '¥' + fmt(cur.bonus);
-  document.getElementById('rowSubsidy').textContent = '¥' + fmt(cur.sub);
-  document.getElementById('rowOT').textContent = '¥' + fmt(cur.otPay);
-  document.getElementById('rowGross').textContent = '¥' + fmt(cur.gross);
-  document.getElementById('rowSocialIns').textContent = fmtNeg(cur.si);
-  document.getElementById('rowHousingFund').textContent = fmtNeg(cur.hf);
-  document.getElementById('rowTax').textContent = fmtNeg(cur.tax);
-  document.getElementById('rowTotalDeduct').textContent = fmtNeg(cur.si + cur.hf + cur.tax);
-
-  var h = cur.hours;
-  document.getElementById('attendNote').textContent =
-    h.absent > 0 ? '（缺勤 ' + h.absent.toFixed(1) + 'h，应出勤 ' + h.required + 'h）' : '（满勤）';
-  var otParts = [];
-  if (h.ot15 > 0) otParts.push('工作日 ' + h.ot15.toFixed(1) + 'h');
-  if (h.ot2 > 0) otParts.push('休息日 ' + h.ot2.toFixed(1) + 'h');
-  if (h.ot3 > 0) otParts.push('法定假 ' + h.ot3.toFixed(1) + 'h');
-  document.getElementById('otNote').textContent = otParts.length ? '（' + otParts.join(' · ') + '）' : '';
-  // 收入项全空时才算"还没开始用"；只填了年终奖也算填了
-  var hasInput = num('baseSalary') > 0 || num('bonus') > 0 ||
-                 num('subsidy') > 0 || num('yearEndBonus') > 0;
-  document.getElementById('heroEmpty').className = hasInput ? 'hero-empty hidden' : 'hero-empty';
-
-  var city = currentCity();
-  document.getElementById('siNote').textContent = '（' + city.name + ' ' + fmt(siInfo.total) + '/月）';
-  document.getElementById('hfNote').textContent = hfInfo.total > 0
-    ? '（基数 ' + fmt0(hfInfo.base) + ' × ' + (hfInfo.rate * 100).toFixed(0) + '%）'
-    : '（未缴纳）';
-
-  // 逐险种明细：基数各不相同，所以每行都把自己的基数写出来
-  var siLines = siInfo.items.map(function(it) {
-    if (it.rate <= 0) return '';   // 工伤个人不缴，不占用户视线
-    return it.name + ' ' + fmt0(it.base) + ' × ' + (it.rate * 100).toFixed(2).replace(/\.?0+$/, '') +
-           '% = ' + fmt(it.amount);
-  }).filter(Boolean);
-  document.getElementById('siDetail').innerHTML =
-    siLines.join('<br>') + '<br>个人合计 ' + fmt(siInfo.total) + ' 元/月' +
-    '<br><span style="color:var(--label-3)">单位另缴约 ' + fmt(siInfo.company) + ' 元/月 · ' + city.effective + '</span>';
-
-  // ── 公积金账户（公司部分只做展示，不参与扣款与个税）──
-  document.getElementById('hfPersonalNote').textContent = hfInfo.total > 0
-    ? '（' + (hfInfo.rate * 100).toFixed(0) + '% × ' + fmt0(hfInfo.base) + '）' : '';
-  document.getElementById('hfCompanyNote').textContent = hfInfo.company > 0
-    ? '（' + (hfInfo.companyRate * 100).toFixed(0) + '% × ' + fmt0(hfInfo.base) + '）' : '';
-  document.getElementById('rowHfPersonal').textContent = '¥' + fmt(hfInfo.total);
-  document.getElementById('rowHfCompany').textContent  = '¥' + fmt(hfInfo.company);
-  document.getElementById('rowHfTotal').textContent    = '¥' + fmt(hfInfo.total + hfInfo.company);
-
-  // ── 公司为你花的钱（社保单位部分 + 公积金单位部分）──
-  document.getElementById('rowCoGross').textContent = '¥' + fmt(cur.gross);
-  document.getElementById('rowCoSi').textContent    = '¥' + fmt(siInfo.company);
-  document.getElementById('rowCoHf').textContent    = '¥' + fmt(hfInfo.company);
-  document.getElementById('rowCoTotal').textContent = '¥' + fmt(cur.gross + siInfo.company + hfInfo.company);
-
-  document.getElementById('siSummary').innerHTML =
-    (num('siBase') > 0 ? '社保 ' + fmt0(num('siBase')) : '按本人工资') +
-    (hfInfo.total > 0 ? ' · 公积金 ' + (hfInfo.rate * 100).toFixed(0) + '%' : ' · 无公积金') +
-    '<i class="chev" id="siIcon">' + (document.getElementById('siBody').style.display === 'none' ? '▼' : '▲') + '</i>';
-
-  // 扣除占比：分子分母都只用当月口径，不混入年终奖
-  var ratio = cur.gross > 0 ? ((cur.si + cur.hf + cur.tax) / cur.gross * 100) : 0;
-  document.getElementById('deductRatio').textContent = ratio.toFixed(1) + '%';
-  document.getElementById('ratioFill').style.width = Math.min(ratio, 100).toFixed(0) + '%';
-
-  // ── 年终奖 ──
-  document.getElementById('rowYEB').textContent = '¥' + fmt(yebInfo.yeb);
-  document.getElementById('rowYEBDiv').textContent = '¥' + fmt(yebInfo.div);
-  document.getElementById('rowYEBRate').textContent =
-    yebInfo.yeb > 0 ? (yebInfo.rate * 100).toFixed(0) + '% / ' + fmt0(yebInfo.qd) : '—';
-  document.getElementById('rowYEBTax').textContent = fmtNeg(yebInfo.tax);
-  document.getElementById('rowYEBNet').textContent = '¥' + fmt(yebInfo.net);
-  renderYebWarning(yebInfo.yeb);
-
-  // ── 两种计税方式对比 ──
-  // 取 12 月的累计应纳税所得额作为全年口径。这里不能用 Math.max(0, …)：
-  // 累计值本身在 accumulateTax 里已经夹过 0，若全年额度没用满，
-  // 真实的"剩余额度"是负的，直接用夹过的 0 会低估并入方式的优势。
-  // 所以另行按原式算一遍不夹逼的全年应纳税所得额。
-  var annualTaxableRaw = totGross - BASIC_DEDUCTION * 12
-                       - (cur.si + cur.hf) * 12 - getSpecialDeduction() * 12;
-  renderYebCompare(yebInfo.yeb, annualTaxableRaw);
+  renderHero(cur, yeb, tot);
+  renderMonthDetail(cur);
+  renderSocialDetail(si, hf, cur);
+  renderCompanyCost(cur, si, hf);
+  renderYebCard(yeb, tot, cur);
+  renderMonthTable(months, sel, tot);
   calcReverse();
-
-  // ── 逐月表 ──
-  updateMonthTable(months, sel);
-  document.getElementById('ftOT').textContent = '¥' + fmt0(totOT);
-  document.getElementById('ftBonus').textContent = '¥' + fmt0(totBonus);
-  document.getElementById('ftSub').textContent = '¥' + fmt0(totSub);
-  document.getElementById('ftGross').textContent = '¥' + fmt0(totGross);
-  document.getElementById('ftTax').textContent = '¥' + fmt0(totTax);
-  document.getElementById('ftNet').textContent = '¥' + fmt0(totNet);
 
   // 工资变了结余也跟着变，但要防递归：renderLedger 里调 calcYear 而非 calc
   if (flMonth) renderLedger();
 
   saveForm();
+}
+
+// 全年各项合计，多处要用，算一次传下去
+function sumYear(months) {
+  var t = { gross: 0, net: 0, tax: 0, ot: 0, bonus: 0, sub: 0 };
+  months.forEach(function(x) {
+    t.gross += x.gross; t.net += x.net; t.tax += x.tax;
+    t.ot += x.otPay; t.bonus += x.bonus; t.sub += x.sub;
+  });
+  return t;
+}
+
+// 顶部结果卡
+function renderHero(cur, yeb, tot) {
+  setMoney('preTaxSalary', cur.gross);
+  setMoney('afterTaxSalary', cur.net);
+  // 「含年终奖」的口径由税后那行写全，税前这行只带金额，免得同卡重复两遍
+  setText('preTaxAnnual', '年度 ¥' + fmt0(tot.gross + yeb.yeb));
+  setText('afterTaxAnnual', '年度合计（含年终奖）¥' + fmt0(tot.net + yeb.net));
+
+  // 收入项全空时才算「还没开始用」；只填了年终奖也算填了
+  var hasInput = num('baseSalary') > 0 || num('bonus') > 0 ||
+                 num('subsidy') > 0 || num('yearEndBonus') > 0;
+  $('heroEmpty').className = hasInput ? 'hero-empty hidden' : 'hero-empty';
+}
+
+// 当月收入与扣款明细
+function renderMonthDetail(cur) {
+  setMoney('rowBase', cur.basePay);
+  setMoney('rowBonus', cur.bonus);
+  setMoney('rowSubsidy', cur.sub);
+  setMoney('rowOT', cur.otPay);
+  setMoney('rowGross', cur.gross);
+  setText('rowSocialIns', fmtNeg(cur.si));
+  setText('rowHousingFund', fmtNeg(cur.hf));
+  setText('rowTax', fmtNeg(cur.tax));
+  setText('rowTotalDeduct', fmtNeg(cur.si + cur.hf + cur.tax));
+
+  var h = cur.hours;
+  setText('attendNote', h.absent > 0
+    ? '（缺勤 ' + h.absent.toFixed(1) + 'h，应出勤 ' + h.required + 'h）' : '（满勤）');
+
+  var parts = [];
+  if (h.ot15 > 0) parts.push('工作日 ' + h.ot15.toFixed(1) + 'h');
+  if (h.ot2 > 0) parts.push('休息日 ' + h.ot2.toFixed(1) + 'h');
+  if (h.ot3 > 0) parts.push('法定假 ' + h.ot3.toFixed(1) + 'h');
+  setText('otNote', parts.length ? '（' + parts.join(' · ') + '）' : '');
+
+  // 扣除占比：分子分母都只用当月口径，不混入年终奖
+  var ratio = cur.gross > 0 ? ((cur.si + cur.hf + cur.tax) / cur.gross * 100) : 0;
+  setText('deductRatio', ratio.toFixed(1) + '%');
+  $('ratioFill').style.width = Math.min(ratio, 100).toFixed(0) + '%';
+}
+
+// 社保公积金明细与公积金账户
+function renderSocialDetail(si, hf, cur) {
+  var city = currentCity();
+  setText('siNote', '（' + city.name + ' ' + fmt(si.total) + '/月）');
+  setText('hfNote', hf.total > 0
+    ? '（基数 ' + fmt0(hf.base) + ' × ' + (hf.rate * 100).toFixed(0) + '%）'
+    : '（未缴纳）');
+
+  // 逐险种明细：各险种基数不同，所以每行都把自己的基数写出来
+  var lines = si.items.map(function(it) {
+    if (it.rate <= 0) return '';        // 工伤个人不缴，不占用户视线
+    return it.name + ' ' + fmt0(it.base) + ' × ' +
+           (it.rate * 100).toFixed(2).replace(/\.?0+$/, '') + '% = ' + fmt(it.amount);
+  }).filter(Boolean);
+  $('siDetail').innerHTML =
+    lines.join('<br>') + '<br>个人合计 ' + fmt(si.total) + ' 元/月' +
+    '<br><span class="si-company">单位另缴约 ' + fmt(si.company) + ' 元/月 · ' + city.effective + '</span>';
+
+  // 公积金账户：公司部分只做展示，不参与扣款与个税
+  setText('hfPersonalNote', hf.total > 0
+    ? '（' + (hf.rate * 100).toFixed(0) + '% × ' + fmt0(hf.base) + '）' : '');
+  setText('hfCompanyNote', hf.company > 0
+    ? '（' + (hf.companyRate * 100).toFixed(0) + '% × ' + fmt0(hf.base) + '）' : '');
+  setMoney('rowHfPersonal', hf.total);
+  setMoney('rowHfCompany', hf.company);
+  setMoney('rowHfTotal', hf.total + hf.company);
+
+  $('siSummary').innerHTML =
+    (num('siBase') > 0 ? '社保 ' + fmt0(num('siBase')) : '按本人工资') +
+    (hf.total > 0 ? ' · 公积金 ' + (hf.rate * 100).toFixed(0) + '%' : ' · 无公积金') +
+    '<i class="chev" id="siIcon">' + ($('siBody').style.display === 'none' ? '▼' : '▲') + '</i>';
+}
+
+// 公司为你支出
+function renderCompanyCost(cur, si, hf) {
+  setMoney('rowCoGross', cur.gross);
+  setMoney('rowCoSi', si.company);
+  setMoney('rowCoHf', hf.company);
+  setMoney('rowCoTotal', cur.gross + si.company + hf.company);
+}
+
+// 年终奖卡与两种计税方式对比
+function renderYebCard(yeb, tot, cur) {
+  setMoney('rowYEB', yeb.yeb);
+  setMoney('rowYEBDiv', yeb.div);
+  setText('rowYEBRate', yeb.yeb > 0
+    ? (yeb.rate * 100).toFixed(0) + '% / ' + fmt0(yeb.qd) : '—');
+  setText('rowYEBTax', fmtNeg(yeb.tax));
+  setMoney('rowYEBNet', yeb.net);
+  renderYebWarning(yeb.yeb);
+
+  // 全年应纳税所得额刻意不夹到 0：累计值在 accumulateTax 里已夹过，
+  // 若全年额度没用满，真实的「剩余额度」是负的，用夹过的 0 会低估并入方式的优势。
+  var annualTaxableRaw = tot.gross - BASIC_DEDUCTION * 12
+                       - (cur.si + cur.hf) * 12 - getSpecialDeduction() * 12;
+  renderYebCompare(yeb.yeb, annualTaxableRaw);
+}
+
+// 逐月表与表尾合计
+function renderMonthTable(months, sel, tot) {
+  updateMonthTable(months, sel);
+  setMoney('ftOT', tot.ot, { round: true });
+  setMoney('ftBonus', tot.bonus, { round: true });
+  setMoney('ftSub', tot.sub, { round: true });
+  setMoney('ftGross', tot.gross, { round: true });
+  setMoney('ftTax', tot.tax, { round: true });
+  setMoney('ftNet', tot.net, { round: true });
 }
 
 // 逐月表的 DOM 只构建一次，之后 calc() 仅改写单元格文本。
@@ -2274,7 +2328,7 @@ function buildMonthTable() {
       '<td class="col-net" id="mc-net-' + m + '">¥0</td>' +
       '</tr>';
   }
-  document.getElementById('monthTableBody').innerHTML = rows;
+  $('monthTableBody').innerHTML = rows;
   monthTableBuilt = true;
 }
 
@@ -2286,19 +2340,19 @@ function updateMonthTable(months, sel) {
     var cls = [];
     if (x.m === sel) cls.push('current');
     if (x.hours.filled) cls.push('filled');
-    document.getElementById('mrow-' + x.m).className = cls.join(' ');
+    $('mrow-' + x.m).className = cls.join(' ');
 
-    document.getElementById('mc-attend-' + x.m).textContent = x.hours.absent > 0
+    $('mc-attend-' + x.m).textContent = x.hours.absent > 0
       ? '缺' + x.hours.absent.toFixed(1) + 'h'
       : (x.hours.required > 0 ? '满勤' : '—');
-    document.getElementById('mc-ot-' + x.m).textContent    = '¥' + fmt0(x.otPay);
-    document.getElementById('mc-gross-' + x.m).textContent = '¥' + fmt0(x.gross);
-    document.getElementById('mc-cum-' + x.m).textContent   = '¥' + fmt0(x.cumTaxable);
-    document.getElementById('mc-tax-' + x.m).textContent   = '¥' + fmt0(x.tax);
-    document.getElementById('mc-net-' + x.m).textContent   = '¥' + fmt0(x.net);
+    $('mc-ot-' + x.m).textContent    = '¥' + fmt0(x.otPay);
+    $('mc-gross-' + x.m).textContent = '¥' + fmt0(x.gross);
+    $('mc-cum-' + x.m).textContent   = '¥' + fmt0(x.cumTaxable);
+    $('mc-tax-' + x.m).textContent   = '¥' + fmt0(x.tax);
+    $('mc-net-' + x.m).textContent   = '¥' + fmt0(x.net);
 
     ['bonus', 'subsidy'].forEach(function(f) {
-      var el = document.getElementById('mi-' + f + '-' + x.m);
+      var el = $('mi-' + f + '-' + x.m);
       el.placeholder = ph[f];
       // 正在输入的框不回写 value，否则光标会跳到末尾
       if (document.activeElement !== el) el.value = overrideVal(x.m, f);
@@ -2321,25 +2375,25 @@ function setOverride(m, field, val) {
 // 年终奖临界点：多发 1 元反而少拿的区间
 // 两种计税方式对比：把更省的那一行标绿并加粗，差额写在建议行
 function renderYebCompare(yeb, annualTaxable) {
-  var g = document.getElementById('yebCmpGroup');
+  var g = $('yebCmpGroup');
   if (yeb <= 0) { g.style.display = 'none'; return; }
   g.style.display = '';
 
   var c = yebCompare(yeb, annualTaxable);
-  document.getElementById('cmpSepTax').textContent    = '¥' + fmt(c.separateTax);
-  document.getElementById('cmpMergedTax').textContent = '¥' + fmt(c.mergedTax);
+  $('cmpSepTax').textContent    = '¥' + fmt(c.separateTax);
+  $('cmpMergedTax').textContent = '¥' + fmt(c.mergedTax);
 
-  var sep = document.getElementById('rowCmpSep');
-  var mer = document.getElementById('rowCmpMerged');
+  var sep = $('rowCmpSep');
+  var mer = $('rowCmpMerged');
   sep.classList.toggle('strong', c.better === 'separate');
   mer.classList.toggle('strong', c.better === 'merged');
-  document.getElementById('cmpSepTax').className    = 'row-value ' + (c.better === 'separate' ? 'pos' : 'dark');
-  document.getElementById('cmpMergedTax').className = 'row-value ' + (c.better === 'merged' ? 'pos' : 'dark');
+  $('cmpSepTax').className    = 'row-value ' + (c.better === 'separate' ? 'pos' : 'dark');
+  $('cmpMergedTax').className = 'row-value ' + (c.better === 'merged' ? 'pos' : 'dark');
 
   var label = { separate: '选单独计税', merged: '选并入综合所得', same: '两种一样' }[c.better];
-  document.getElementById('cmpAdviceLabel').textContent = label;
-  document.getElementById('cmpDiff').textContent = c.diff > 0 ? '省 ¥' + fmt(c.diff) : '¥0.00';
-  document.getElementById('cmpFoot').innerHTML = c.better === 'same'
+  $('cmpAdviceLabel').textContent = label;
+  $('cmpDiff').textContent = c.diff > 0 ? '省 ¥' + fmt(c.diff) : '¥0.00';
+  $('cmpFoot').innerHTML = c.better === 'same'
     ? '两种方式税额相同，随便选。'
     : '这里是全年个税总额的对比（工资部分两种方式相同，差异只来自奖金怎么算）。' +
       '申报时在个税 App 的「综合所得年度汇算」里可以选，一年只能选一次。' +
@@ -2385,8 +2439,8 @@ function exportData() {
   bkText = JSON.stringify(payload);
   bkName = '薪资计算备份-' + payload.exportedAt.slice(0, 10) + '.json';
 
-  document.getElementById('bkText').value = bkText;
-  document.getElementById('bkSize').textContent =
+  $('bkText').value = bkText;
+  $('bkSize').textContent =
     Object.keys(payload.data).length + ' 项 · ' + Math.max(1, Math.round(bkText.length / 1024)) + ' KB';
 
   // 分享按钮只在真能分享文件时才留着，否则点了也是没反应
@@ -2396,22 +2450,22 @@ function exportData() {
       files: [new File(['x'], 'a.json', { type: 'application/json' })],
     }));
   } catch (e) {}
-  document.getElementById('bkShareBtn').style.display = canShare ? '' : 'none';
+  $('bkShareBtn').style.display = canShare ? '' : 'none';
 
-  var p = document.getElementById('bkPanel');
+  var p = $('bkPanel');
   p.style.display = '';
   p.scrollIntoView({ block: 'start', behavior: 'smooth' });
 
   // 文本框只有几行高，手动拖选必然选不全，而选不全粘回来就是「解析失败」。
   // 一打开就把内容整体选中，用户直接用系统的「复制」即可。
-  var el = document.getElementById('bkText');
+  var el = $('bkText');
   setTimeout(function() {
     try { el.focus({ preventScroll: true }); el.setSelectionRange(0, el.value.length); } catch (e) {}
   }, 350);
 }
 
 function closeBk() {
-  document.getElementById('bkPanel').style.display = 'none';
+  $('bkPanel').style.display = 'none';
 }
 
 function shareBackup() {
@@ -2425,7 +2479,7 @@ function shareBackup() {
 }
 
 function copyBackup() {
-  var el = document.getElementById('bkText');
+  var el = $('bkText');
   var done = function() { alert('已复制。粘到备忘录或发给自己保存即可。'); };
   var fail = function() { alert('复制失败，请长按下面的文本框手动全选复制。'); };
 
@@ -2465,16 +2519,16 @@ function downloadBackup() {
 }
 
 function openPasteImport() {
-  var p = document.getElementById('pastePanel');
+  var p = $('pastePanel');
   p.style.display = '';
-  document.getElementById('pasteText').value = '';
+  $('pasteText').value = '';
   p.scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 
 function applyPasteImport() {
-  var t = document.getElementById('pasteText').value.trim();
+  var t = $('pasteText').value.trim();
   if (!t) { alert('先粘贴备份内容。'); return; }
-  if (restoreBackup(t)) document.getElementById('pastePanel').style.display = 'none';
+  if (restoreBackup(t)) $('pastePanel').style.display = 'none';
 }
 
 // 文件与粘贴两条路走同一套恢复逻辑。成功返回 true（此时页面即将重载）
@@ -2534,8 +2588,8 @@ function importData(input) {
 
 // 反推：目标月均到手 → 需要的税前月薪
 function calcReverse() {
-  var el = document.getElementById('wantNet');
-  var out = document.getElementById('needGross');
+  var el = $('wantNet');
+  var out = $('needGross');
   if (!el || !out) return;
   var target = num('wantNet');
   if (target <= 0) { out.textContent = '—'; return; }
@@ -2558,7 +2612,7 @@ function calcReverse() {
 }
 
 function renderYebWarning(yeb) {
-  var box = document.getElementById('yebWarn');
+  var box = $('yebWarn');
   if (yeb <= 0) { box.className = 'crit-warn hidden'; return; }
   for (var i = 0; i < YEB_CRITICAL.length; i++) {
     var c = YEB_CRITICAL[i];
@@ -2583,8 +2637,8 @@ function renderYebWarning(yeb) {
 // ═══════════════════════════════════════════════════════════
 
 function renderCalendar() {
-  var grid = document.getElementById('calendarGrid');
-  document.getElementById('calMonthTitle').textContent = calYear + '年' + calMonth + '月';
+  var grid = $('calendarGrid');
+  $('calMonthTitle').textContent = calYear + '年' + calMonth + '月';
 
   var total = daysInMonth(calYear, calMonth);
   var startDow = new Date(calYear, calMonth - 1, 1).getDay();
@@ -2623,7 +2677,7 @@ function renderCalendar() {
   // 重绘会丢掉选中态的 DOM，多选进行中时切月直接退出，别留下"已选 N 天"却没有高亮
   if (selectMode) exitSelectMode();
 
-  var warn = document.getElementById('calWarn');
+  var warn = $('calWarn');
   if (HOLIDAY_YEARS.indexOf(calYear) === -1) {
     // 用 crit-warn（红）而非 warn-box（黄）：这不是"仅供参考"级别的提示，
     // 缺了调休数据，法定假 3 倍与补班日会直接算错，是会影响金额的降级。
@@ -2685,7 +2739,7 @@ function enterSelectMode(day) {
   selectedDays[day] = true;
   swipeLastDay = day;
   setCellInputsEnabled(false);
-  document.getElementById('selectBar').style.display = 'flex';
+  $('selectBar').style.display = 'flex';
   refreshSelectUI();
 }
 
@@ -2694,7 +2748,7 @@ function exitSelectMode() {
   selectedDays = {};
   swipeLastDay = null;
   setCellInputsEnabled(true);
-  document.getElementById('selectBar').style.display = 'none';
+  $('selectBar').style.display = 'none';
   refreshSelectUI();
 }
 
@@ -2718,10 +2772,10 @@ function refreshSelectUI() {
 
   var total = daysInMonth(calYear, calMonth);
   for (var d = 1; d <= total; d++) {
-    var cell = document.getElementById('cell-' + d);
+    var cell = $('cell-' + d);
     if (cell) cell.classList.add(selectedDays[d] ? 'selected' : 'selectable');
   }
-  document.getElementById('selectCount').textContent = '已选 ' + selectedCount() + ' 天';
+  $('selectCount').textContent = '已选 ' + selectedCount() + ' 天';
 }
 
 function applyBatchHours(raw) {
@@ -2768,17 +2822,17 @@ function endSwipe() { swipeLastDay = null; }
 
 function updateSummary() {
   var h = getMonthHours(calYear, calMonth);
-  document.getElementById('sumRequired').textContent = h.required + 'h';
-  document.getElementById('sumNormal').textContent = h.normal.toFixed(1) + 'h';
-  document.getElementById('sumOT15').textContent = h.ot15.toFixed(1) + 'h';
-  document.getElementById('sumOT2').textContent = h.ot2.toFixed(1) + 'h';
-  document.getElementById('sumOT3').textContent = h.ot3.toFixed(1) + 'h';
+  $('sumRequired').textContent = h.required + 'h';
+  $('sumNormal').textContent = h.normal.toFixed(1) + 'h';
+  $('sumOT15').textContent = h.ot15.toFixed(1) + 'h';
+  $('sumOT2').textContent = h.ot2.toFixed(1) + 'h';
+  $('sumOT3').textContent = h.ot3.toFixed(1) + 'h';
 
   // 单元格角标
   var data = loadHours(calYear, calMonth);
   var total = daysInMonth(calYear, calMonth);
   for (var d = 1; d <= total; d++) {
-    var tag = document.getElementById('tag-' + d);
+    var tag = $('tag-' + d);
     if (!tag) continue;
     var meta = getDayMeta(calYear, calMonth, d);
     var hrs;
@@ -2799,7 +2853,7 @@ function updateSummary() {
 
   var n = 0;
   for (var m = 1; m <= 12; m++) if (isMonthFilled(calYear, m)) n++;
-  document.getElementById('filledHint').textContent = '已填 ' + n + '/12 个月';
+  $('filledHint').textContent = '已填 ' + n + '/12 个月';
 }
 
 function changeMonth(delta) {
@@ -2820,7 +2874,7 @@ function batchFill(mode) {
   if (mode === 'clear') {
     // 抹掉记录回到"未填"，与「重置全年」语义一致。
     // 若写成全 null 则等于"全月缺勤"，工资几乎归零，与按钮字面意思相反。
-    try { localStorage.removeItem(hoursKey(calYear, calMonth)); } catch (e) {}
+    lsDel(hoursKey(calYear, calMonth));
   } else {
     var total = daysInMonth(calYear, calMonth);
     var data = {};
@@ -2834,7 +2888,7 @@ function batchFill(mode) {
 function clearYear() {
   if (!confirm('确定清空 ' + calYear + ' 年全部 12 个月已填的工时吗？此操作不可撤销。')) return;
   for (var m = 1; m <= 12; m++) {
-    try { localStorage.removeItem(hoursKey(calYear, m)); } catch (e) {}
+    lsDel(hoursKey(calYear, m));
   }
   renderCalendar();
   calc();
@@ -2851,15 +2905,15 @@ function switchTab(name, btn) {
   var panels = document.querySelectorAll('.tab-panel');
   for (var j = 0; j < panels.length; j++) panels[j].classList.remove('active');
 
-  document.getElementById('tab-' + name).classList.add('active');
+  $('tab-' + name).classList.add('active');
   if (!btn) btn = document.querySelector('.tab-btn[onclick*="' + name + '"]');
   if (btn) btn.classList.add('active');
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function toggleBox(bodyId, iconId) {
-  var body = document.getElementById(bodyId);
-  var icon = document.getElementById(iconId);
+  var body = $(bodyId);
+  var icon = $(iconId);
   var open = body.style.display === 'none';
   body.style.display = open ? 'block' : 'none';
   if (icon) icon.textContent = open ? '▲' : '▼';
@@ -2913,15 +2967,15 @@ function esc(s) {
 
 function setFlType(t) {
   flType = (t === 'i') ? 'i' : 'e';
-  document.getElementById('flTypeE').className = flType === 'e' ? 'on' : '';
-  document.getElementById('flTypeI').className = flType === 'i' ? 'on' : '';
+  $('flTypeE').className = flType === 'e' ? 'on' : '';
+  $('flTypeI').className = flType === 'i' ? 'on' : '';
   flCat = LEDGER_CATS[flType][0].key;   // 换类型时旧分类不属于新类型，重置到首项
   buildCatGrid();
   renderLedger();
 }
 
 function buildCatGrid() {
-  document.getElementById('flCatGrid').innerHTML = LEDGER_CATS[flType].map(function(c) {
+  $('flCatGrid').innerHTML = LEDGER_CATS[flType].map(function(c) {
     return '<div class="cat-cell' + (c.key === flCat ? ' on' : '') +
       '" onclick="pickCat(\'' + c.key + '\')">' +
       catIcon(c) + '<span>' + c.name + '</span></div>';
@@ -2931,13 +2985,13 @@ function buildCatGrid() {
 function pickCat(key) { flCat = key; buildCatGrid(); }
 
 function buildFlMonthSelect() {
-  var sel = document.getElementById('flMonth');
+  var sel = $('flMonth');
   var html = '';
   for (var m = 1; m <= 12; m++) html += '<option value="' + m + '">' + m + ' 月</option>';
   sel.innerHTML = html;
   sel.value = String(flMonth);
   // 日期下拉跟着月份的实际天数走，2 月不该出现 31 日
-  var ds = document.getElementById('flDay');
+  var ds = $('flDay');
   var total = daysInMonth(calYear, flMonth);
   var dh = '';
   for (var d = 1; d <= total; d++) dh += '<option value="' + d + '">' + d + ' 日</option>';
@@ -2954,7 +3008,7 @@ function onFlMonthChange() {
 }
 
 function addFlow() {
-  var amt = ledgerAmount(document.getElementById('flAmt').value);
+  var amt = ledgerAmount($('flAmt').value);
   if (amt <= 0) { alert('先填金额。'); return; }
   var list = loadLedger(calYear, flMonth);
   list.push({
@@ -2962,12 +3016,12 @@ function addFlow() {
     t: flType,
     c: flCat,
     a: amt,
-    n: (document.getElementById('flNote').value || '').slice(0, 20),
+    n: ($('flNote').value || '').slice(0, 20),
   });
   saveLedger(calYear, flMonth, list);
   // 清金额与备注但保留分类和日期：连续记同类支出时少点几下
-  document.getElementById('flAmt').value = '';
-  document.getElementById('flNote').value = '';
+  $('flAmt').value = '';
+  $('flNote').value = '';
   renderLedger();
 }
 
@@ -3115,7 +3169,7 @@ function finishBillImport(res, isZip) {
   });
 
   renderImport(res.skipped, dupCount);
-  document.getElementById('impGroup').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  $('impGroup').scrollIntoView({ block: 'start', behavior: 'smooth' });
 }
 
 function toggleImp(i) {
@@ -3137,7 +3191,7 @@ var impSkipped = 0, impDup = 0;
 
 function renderImport(skipped, dup) {
   if (skipped !== undefined) { impSkipped = skipped; impDup = dup || 0; }
-  var g = document.getElementById('impGroup');
+  var g = $('impGroup');
   if (!impItems.length) { g.style.display = 'none'; return; }
   g.style.display = '';
 
@@ -3145,14 +3199,14 @@ function renderImport(skipped, dup) {
   var exp = 0, inc = 0;
   on.forEach(function(e) { if (e.t === 'i') inc += e.a; else exp += e.a; });
 
-  document.getElementById('impStat').textContent = '已选 ' + on.length + ' / ' + impItems.length + ' 条';
-  document.getElementById('impFoot').innerHTML =
+  $('impStat').textContent = '已选 ' + on.length + ' / ' + impItems.length + ' 条';
+  $('impFoot').innerHTML =
     '将导入支出 ¥' + fmt(exp) + '、收入 ¥' + fmt(inc) + '。' +
     (impSkipped ? '<br>已自动跳过 ' + impSkipped + ' 条（退款、已关闭、不计收支）。' : '') +
     (impDup ? '<br>有 ' + impDup + ' 条与现有流水重复，已默认不勾选。' : '') +
     '<br>分类是按商户名猜的，点分类图标可以改。';
 
-  document.getElementById('impList').innerHTML = impItems.map(function(e, i) {
+  $('impList').innerHTML = impItems.map(function(e, i) {
     var c = ledgerCat(e.t, e.c);
     var opts = LEDGER_CATS[e.t === 'i' ? 'i' : 'e'].map(function(x) {
       return '<option value="' + x.key + '"' + (x.key === e.c ? ' selected' : '') + '>' + x.name + '</option>';
@@ -3176,7 +3230,7 @@ function renderImport(skipped, dup) {
 
 function cancelImport() {
   impItems = [];
-  document.getElementById('impGroup').style.display = 'none';
+  $('impGroup').style.display = 'none';
 }
 
 function commitImport() {
@@ -3209,7 +3263,7 @@ function commitImport() {
 function pickSpDay(d) {
   flSelDay = (flSelDay === d) ? 0 : d;
   if (flSelDay) {
-    var ds = document.getElementById('flDay');
+    var ds = $('flDay');
     if (ds) ds.value = String(flSelDay);
   }
   renderLedger();
@@ -3260,8 +3314,8 @@ function renderSpendCal(list) {
   var rem = (startDow + total) % 7;
   if (rem) for (var t = 0; t < 7 - rem; t++) html += '<div class="sp-cell blank"></div>';
 
-  document.getElementById('spGrid').innerHTML = html;
-  document.getElementById('spHint').textContent =
+  $('spGrid').innerHTML = html;
+  $('spHint').textContent =
     maxDay > 0 ? '单日最高 ¥' + fmt0(maxDay) : '颜色越深花得越多';
 }
 
@@ -3271,24 +3325,24 @@ function renderLedger() {
   var bal = ledgerBalance(list, takeHomeOf(flMonth));
   renderSpendCal(list);
 
-  document.getElementById('flBalance').textContent = '¥' + fmt(bal.balance);
-  document.getElementById('flBalanceSub').textContent =
+  $('flBalance').textContent = '¥' + fmt(bal.balance);
+  $('flBalanceSub').textContent =
     '工资到手 ¥' + fmt0(bal.takeHome) + ' · 额外收入 ¥' + fmt0(bal.extraIncome) +
     ' · 支出 ¥' + fmt0(bal.expense);
-  document.getElementById('flRate').textContent = bal.rate.toFixed(1) + '%';
-  document.getElementById('flRateDesc').textContent = list.length
+  $('flRate').textContent = bal.rate.toFixed(1) + '%';
+  $('flRateDesc').textContent = list.length
     ? '流入 ¥' + fmt0(bal.inflow) + ' 中花掉了 ¥' + fmt0(bal.expense)
     : '还没有记录';
 
   // ── 分类排行（只看支出，收入构成意义不大）──
   var rank = ledgerRanking(list, 'e');
-  var rg = document.getElementById('flRankGroup');
+  var rg = $('flRankGroup');
   if (!rank.length) {
     rg.style.display = 'none';
   } else {
     rg.style.display = '';
-    document.getElementById('flRankTotal').textContent = '共 ¥' + fmt0(bal.expense);
-    document.getElementById('flRankList').innerHTML = rank.map(function(r) {
+    $('flRankTotal').textContent = '共 ¥' + fmt0(bal.expense);
+    $('flRankList').innerHTML = rank.map(function(r) {
       return '<div class="row">' +
         catIcon(r) +
         '<div class="row-main">' +
@@ -3307,11 +3361,11 @@ function renderLedger() {
           .filter(function(x) { return (parseInt(x.e.d, 10) || 1) === flSelDay; })
     : list.map(function(e, i) { return { e: e, i: i }; });
 
-  document.getElementById('flCount').textContent = flSelDay
+  $('flCount').textContent = flSelDay
     ? flMonth + '月' + flSelDay + '日 · ' + shown.length + ' 笔'
     : (list.length ? list.length + ' 笔' : '');
 
-  var box = document.getElementById('flList');
+  var box = $('flList');
   if (!shown.length) {
     box.innerHTML = '<div class="fl-empty">' +
       (flSelDay ? flMonth + ' 月 ' + flSelDay + ' 日没有记录' : '本月还没有记录') + '</div>';
@@ -3347,7 +3401,7 @@ function renderLedger() {
 // ═══════════════════════════════════════════════════════════
 
 function buildCitySelect() {
-  var sel = document.getElementById('cityPick');
+  var sel = $('cityPick');
   var html = CITY_KEYS.map(function(k) {
     return '<option value="' + k + '">' + CITIES[k].name + '</option>';
   }).join('');
@@ -3357,7 +3411,7 @@ function buildCitySelect() {
 // 公积金比例的可选范围随城市变（上海只到 7%），换城市要重建选项，
 // 并把超出新范围的旧选择拉回边界，否则 select 会变成空白。
 function buildRateSelect(id, city) {
-  var sel = document.getElementById(id);
+  var sel = $(id);
   var prev = parseFloat(sel.value);
   var html = '';
   for (var p = Math.round(city.hf.rateMin * 100); p <= Math.round(city.hf.rateMax * 100); p++) {
@@ -3369,8 +3423,8 @@ function buildRateSelect(id, city) {
 }
 
 function buildMedTierSelect(city) {
-  var row = document.getElementById('medTierRow');
-  var sel = document.getElementById('medTier');
+  var row = $('medTierRow');
+  var sel = $('medTier');
   if (!city.medTiers) { row.style.display = 'none'; sel.innerHTML = ''; return; }
   row.style.display = '';
   sel.innerHTML = city.medTiers.map(function(t) {
@@ -3383,7 +3437,7 @@ function buildMedTierSelect(city) {
 function onHfToggle() {
   var on = selVal('hfOn') !== '0';
   ['hfBaseRow', 'hfRateRow', 'hfCoRateRow'].forEach(function(id) {
-    document.getElementById(id).style.display = on ? '' : 'none';
+    $(id).style.display = on ? '' : 'none';
   });
   calc();
 }
@@ -3396,14 +3450,14 @@ function applyCity() {
   var cus = document.querySelectorAll('.cus-only');
   for (var i = 0; i < cus.length; i++) cus[i].style.display = isCustom ? '' : 'none';
   // 自定义时默认把设置面板展开，否则用户不知道要去填费率
-  if (isCustom && document.getElementById('siBody').style.display === 'none') {
+  if (isCustom && $('siBody').style.display === 'none') {
     toggleBox('siBody', 'siIcon');
   }
 
   buildMedTierSelect(city);
   buildRateSelect('hfRate', city);
   buildRateSelect('hfCompanyRate', city);
-  document.getElementById('cityEffective').textContent = city.effective;
+  $('cityEffective').textContent = city.effective;
 
   var foot = '基数留空时按本人工资（底薪＋奖金＋补贴，不含加班费）计算';
   if (isCustom) {
@@ -3418,17 +3472,17 @@ function applyCity() {
       Math.round(city.hf.rateMin * 100) + '%~' + Math.round(city.hf.rateMax * 100) + '% 可选。<br>' +
       '数据生效期：' + city.effective + '，最终以当地社保局核定为准。';
   }
-  document.getElementById('siFoot').innerHTML = foot;
+  $('siFoot').innerHTML = foot;
 }
 
 function onCityChange() {
-  try { localStorage.setItem(CITY_KEY, selVal('cityPick')); } catch (e) {}
+  lsSet(CITY_KEY, selVal('cityPick'));
   applyCity();
   onHfToggle();
 }
 
 function setYearSelect(y) {
-  var sel = document.getElementById('taxYear');
+  var sel = $('taxYear');
   var found = false;
   for (var i = 0; i < sel.options.length; i++) {
     if (parseInt(sel.options[i].value, 10) === y) { found = true; break; }
@@ -3442,7 +3496,7 @@ function setYearSelect(y) {
 }
 
 function onYearChange() {
-  calYear = parseInt(document.getElementById('taxYear').value, 10);
+  calYear = parseInt($('taxYear').value, 10);
   loadForm();          // 每个年度一套表单数据，切年重新载入
   renderCalendar();
   syncMonthSelect();
@@ -3450,7 +3504,7 @@ function onYearChange() {
 }
 
 function syncMonthSelect() {
-  var sel = document.getElementById('taxMonth');
+  var sel = $('taxMonth');
   if (sel.options.length !== 12) {
     var html = '';
     for (var m = 1; m <= 12; m++) html += '<option value="' + m + '">' + m + ' 月</option>';
@@ -3468,7 +3522,7 @@ function syncMonthSelect() {
   calYear = now.getFullYear();
   calMonth = now.getMonth() + 1;
 
-  var ysel = document.getElementById('taxYear');
+  var ysel = $('taxYear');
   var years = HOLIDAY_YEARS.slice();
   if (years.indexOf(calYear) === -1) years.push(calYear);
   years.sort();
@@ -3480,9 +3534,8 @@ function syncMonthSelect() {
   // 城市要先于 loadForm 定下来：比例选项是按城市生成的，
   // 顺序反了的话 loadForm 写入的比例会被随后重建的 options 冲掉。
   buildCitySelect();
-  var savedCity = '';
-  try { savedCity = localStorage.getItem(CITY_KEY) || ''; } catch (e) {}
-  document.getElementById('cityPick').value =
+  var savedCity = lsGet(CITY_KEY, '');
+  $('cityPick').value =
     (savedCity && (CITIES[savedCity] || savedCity === 'custom')) ? savedCity : 'sz';
   applyCity();
 
@@ -3508,8 +3561,8 @@ if ('serviceWorker' in navigator) {
 
 // ── Install Banner ──
 var deferredPrompt = null;
-var banner = document.getElementById('installBanner');
-var btnInstall = document.getElementById('btnInstall');
+var banner = $('installBanner');
+var btnInstall = $('btnInstall');
 
 window.addEventListener('beforeinstallprompt', function(e) {
   e.preventDefault();
