@@ -545,6 +545,26 @@
   }
   .bk-text:focus { border-color: var(--blue); }
 
+  /* ── 按月趋势条 ──
+     12 个月并排，每月一根柱：结余为正画绿、为负画红，支出画橙。
+     不引图表库，纯 flex + 高度百分比。 */
+  .trend { display: flex; align-items: flex-end; gap: 3px; height: 128px; }
+  .trend .tcol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; }
+  .trend .tbars { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 2px; }
+  .trend .tbar { width: 45%; border-radius: 3px 3px 0 0; min-height: 2px; }
+  .trend .tbal { background: var(--green); }
+  .trend .tbal.neg { background: var(--red); }
+  .trend .texp { background: var(--orange); }
+  .trend .tm { font-size: 9.5px; color: var(--label-3); }
+  .trend .tcol.cur .tm { color: var(--blue); font-weight: 700; }
+
+  /* 预算进度条：超支变红 */
+  .bud-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--sep-soft); overflow: hidden; }
+  .bud-bar > span { display: block; height: 100%; border-radius: 3px; background: var(--green); }
+  .bud-bar > span.warn { background: var(--orange); }
+  .bud-bar > span.over { background: var(--red); }
+  .bud-over { color: var(--red); font-weight: 600; }
+
   .footer { margin-top: 22px; text-align: center; font-size: 11.5px; color: var(--label-3); }
   /* 构建标识：平时不抢眼，需要核对版本时一眼能找到 */
   .build {
@@ -753,6 +773,47 @@
       <div class="group-foot" id="impFoot"></div>
     </div>
 
+    <!-- 固定支出 -->
+    <div class="group">
+      <div class="group-title">固定支出<span id="recHint"></span></div>
+      <div class="card list icons" id="recList"></div>
+      <div class="card list" style="margin-top:10px">
+        <div class="row row-tap" onclick="toggleBox('recAdd','recIcon')">
+          <span class="row-label">添加固定支出</span>
+          <span class="row-value">房租 / 订阅 / 话费<i class="chev" id="recIcon">▼</i></span>
+        </div>
+        <div id="recAdd" style="display:none;">
+          <div class="cat-grid" id="recCatGrid"></div>
+          <div class="row"><span class="row-label">金额</span>
+            <span class="row-money"><input type="number" inputmode="decimal" class="row-input" id="recAmt" placeholder="0.00" step="0.01" min="0"></span></div>
+          <div class="row"><span class="row-label">每月几号</span>
+            <select class="row-select" id="recDay"></select></div>
+          <div class="row"><span class="row-label">名称</span>
+            <input type="text" class="row-input" id="recNote" placeholder="如 房租" maxlength="20" style="max-width:168px;text-align:right;"></div>
+          <button class="row row-action" onclick="addRecurring()">保存模板</button>
+        </div>
+      </div>
+      <div class="group-foot">
+        每月重复的支出存成模板，「一键生成本月」直接记进流水。已生成过的不会重复。
+      </div>
+    </div>
+
+    <!-- 预算 -->
+    <div class="group">
+      <div class="group-title">本月预算<span id="budHint"></span></div>
+      <div class="card list icons" id="budList"></div>
+      <div class="card list" style="margin-top:10px">
+        <div class="row row-tap" onclick="toggleBox('budEdit','budIcon')">
+          <span class="row-label">设置预算</span>
+          <span class="row-value">按分类设月度上限<i class="chev" id="budIcon">▼</i></span>
+        </div>
+        <div id="budEdit" style="display:none;"></div>
+      </div>
+      <div class="group-foot">
+        只记不管等于写日记。设了上限之后，超支的分类会在这里标红。留空或填 0 表示不设。
+      </div>
+    </div>
+
     <!-- 分类排行 -->
     <div class="group" id="flRankGroup">
       <div class="group-title">支出构成<span id="flRankTotal"></span></div>
@@ -762,10 +823,79 @@
     <!-- 本月流水 -->
     <div class="group">
       <div class="group-title">本月流水<span id="flCount"></span></div>
-      <div class="card list" id="flList"></div>
+      <div class="card list">
+        <div class="row">
+          <span class="row-icon ic-gray">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+          </span>
+          <input type="text" class="row-input" id="flSearch" placeholder="搜备注、分类或金额"
+                 style="max-width:none;text-align:left" oninput="renderLedger()">
+          <button class="fl-del" onclick="clearFlSearch()" aria-label="清空">✕</button>
+        </div>
+      </div>
+      <div class="card list" id="flList" style="margin-top:10px"></div>
     </div>
 
   </div><!-- /tab-ledger -->
+
+  <!-- ══ Tab: Year ══ -->
+  <div class="tab-panel" id="tab-year">
+
+    <div class="group">
+      <div class="card hero">
+        <div class="hero-head">
+          <span class="hero-label">全年结余</span>
+          <span class="hero-pick"><span id="yrLabel"></span></span>
+        </div>
+        <div class="hero-value" id="yrBalance">¥0.00</div>
+        <div class="hero-sub" id="yrSub">流入 ¥0 · 支出 ¥0</div>
+        <div class="row">
+          <div class="row-main">
+            <div class="row-label">储蓄率</div>
+            <div class="row-desc" id="yrRateDesc">流入里存下来的比例</div>
+          </div>
+          <span class="row-value dark" id="yrRate">0%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">全年收入</div>
+      <div class="card list icons">
+        <div class="row"><span class="row-icon ic-blue">薪</span><span class="row-label">工资到手<span class="sub">12 个月合计</span></span><span class="row-value dark" id="yrTakeHome">¥0.00</span></div>
+        <div class="row"><span class="row-icon ic-pink">年</span><span class="row-label">年终奖到手</span><span class="row-value dark" id="yrYeb">¥0.00</span></div>
+        <div class="row"><span class="row-icon ic-green">额</span><span class="row-label">额外收入<span class="sub">流水里记的</span></span><span class="row-value dark" id="yrExtra">¥0.00</span></div>
+        <div class="row strong"><span class="row-icon ic-green">入</span><span class="row-label">总流入</span><span class="row-value pos" id="yrInflow">¥0.00</span></div>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">按月趋势<span>绿=结余 橙=支出</span></div>
+      <div class="card plain"><div class="trend" id="yrTrend"></div></div>
+      <div class="group-foot" id="yrTrendFoot"></div>
+    </div>
+
+    <div class="group">
+      <div class="group-title">加班统计<span>这些班值不值</span></div>
+      <div class="card list icons">
+        <div class="row"><span class="row-icon ic-orange">日</span><span class="row-label">工作日加班<span class="sub">1.5 倍</span></span><span class="row-value dark" id="yrOt15">0h</span></div>
+        <div class="row"><span class="row-icon ic-red">休</span><span class="row-label">休息日加班<span class="sub">2 倍</span></span><span class="row-value dark" id="yrOt2">0h</span></div>
+        <div class="row"><span class="row-icon ic-pink">假</span><span class="row-label">法定假加班<span class="sub">3 倍</span></span><span class="row-value dark" id="yrOt3">0h</span></div>
+        <div class="row strong"><span class="row-icon ic-gray">计</span><span class="row-label">合计<span class="sub" id="yrOtDays"></span></span><span class="row-value" id="yrOtHours">0h</span></div>
+        <div class="row"><span class="row-icon ic-green">费</span><span class="row-label">加班费合计</span><span class="row-value pos" id="yrOtPay">¥0.00</span></div>
+        <div class="row"><span class="row-icon ic-blue">时</span>
+          <div class="row-main">
+            <div class="row-label">折合加班时薪</div>
+            <div class="row-desc" id="yrOtCompare">跟正常时薪比一比</div>
+          </div>
+          <span class="row-value dark" id="yrOtRate">¥0.00</span></div>
+      </div>
+      <div class="group-foot">
+        折合加班时薪 = 加班费 ÷ 加班时数。比正常时薪高说明加班划算，低则说明在贱卖时间——这通常意味着底薪被压低、靠加班凑收入。
+      </div>
+    </div>
+
+  </div><!-- /tab-year -->
 
   <!-- ══ Tab: Salary ══ -->
   <div class="tab-panel" id="tab-salary">
@@ -1102,7 +1232,7 @@
   <!-- 放在 tab 外面：两个页面都要能看到版本号，否则在日历页没法确认更新到没到 -->
   <div class="footer">
     仅供参考，实际以工资条为准
-    <span class="build" onclick="showBuild()" title="点一下看详情">311d99b2</span>
+    <span class="build" onclick="showBuild()" title="点一下看详情">ffd46eb9</span>
   </div>
 </div>
 
@@ -1114,6 +1244,10 @@
   <button class="tab-btn" onclick="switchTab('ledger', this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5A2.5 2.5 0 0 1 5.5 6H19a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5.5A2.5 2.5 0 0 1 3 16.5z"/><path d="M3 9h13a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H3"/><circle cx="16.5" cy="12.5" r="1.2"/></svg>
     <span>收支</span>
+  </button>
+  <button class="tab-btn" onclick="switchTab('year', this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V9M9.5 19V5M15 19v-7M20.5 19v-4"/><path d="M3 21h18"/></svg>
+    <span>年度</span>
   </button>
   <button class="tab-btn" onclick="switchTab('salary', this)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.6 8l3.4 4 3.4-4M12 12v5M9.2 12.6h5.6M9.2 15.1h5.6"/></svg>
@@ -1923,6 +2057,130 @@ function backupDiagnosis(raw, cleaned) {
   return bits.join('，');
 }
 
+// ═══════════════════════════════════════════════════════════
+//  年度汇总 / 预算 / 搜索 / 固定支出
+// ═══════════════════════════════════════════════════════════
+
+// 全年汇总。salaryMonths 来自 calcYear()，ledgers 是 12 个月的流水数组，
+// yebNet 是年终奖到手（单独计税后）。
+// 储蓄率分母用「总流入」而非工资：有兼职副业的人只看工资会算高储蓄率。
+function annualSummary(salaryMonths, ledgers, yebNet) {
+  var series = [], takeHome = 0, extra = 0, expense = 0;
+  for (var i = 0; i < 12; i++) {
+    var net = (salaryMonths[i] && salaryMonths[i].net) || 0;
+    var sum = ledgerSummary((ledgers && ledgers[i]) || []);
+    takeHome += net;
+    extra += sum.income;
+    expense += sum.expense;
+    series.push({
+      m: i + 1,
+      income: r2(net + sum.income),
+      expense: sum.expense,
+      balance: r2(net + sum.income - sum.expense),
+    });
+  }
+  var yb = r2(yebNet || 0);
+  var inflow = r2(takeHome + extra + yb);
+  return {
+    takeHome: r2(takeHome), extraIncome: r2(extra), yebNet: yb,
+    inflow: inflow, expense: r2(expense), balance: r2(inflow - expense),
+    saveRate: inflow > 0 ? r2((inflow - expense) / inflow * 100) : 0,
+    series: series,
+  };
+}
+
+// 加班统计。折合时薪 = 加班费 ÷ 加班时数，用来回答「加这些班值不值」：
+// 拿它跟正常时薪（底薪÷174）比，就知道加班是赚了还是在贱卖时间。
+function overtimeSummary(salaryMonths, baseSalary) {
+  var h15 = 0, h2 = 0, h3 = 0, pay = 0;
+  (salaryMonths || []).forEach(function(x) {
+    if (!x || !x.hours) return;
+    h15 += x.hours.ot15; h2 += x.hours.ot2; h3 += x.hours.ot3;
+    pay += x.otPay;
+  });
+  var hours = r2(h15 + h2 + h3);
+  var normalRate = baseSalary > 0 ? r2(baseSalary / MONTH_HOURS) : 0;
+  return {
+    h15: r2(h15), h2: r2(h2), h3: r2(h3), hours: hours,
+    pay: r2(pay),
+    // 加班时数为 0 时给 0 而不是 NaN
+    rate: hours > 0 ? r2(pay / hours) : 0,
+    normalRate: normalRate,
+    days: r2(hours / 8),
+  };
+}
+
+// 预算状态。budgets 形如 { food: 1500, shop: 800 }，没设的分类不参与。
+// 返回按超支程度排序：最该被看到的排最前。
+function budgetStatus(entries, budgets) {
+  var sum = ledgerSummary(entries || []);
+  var out = [];
+  LEDGER_CATS.e.forEach(function(c) {
+    var limit = Number((budgets || {})[c.key]) || 0;
+    if (limit <= 0) return;              // 没设预算的分类不显示
+    var spent = sum.byCat['e:' + c.key] || 0;
+    out.push({
+      key: c.key, name: c.name, icon: c.icon, color: c.color,
+      spent: r2(spent), budget: r2(limit),
+      pct: r2(spent / limit * 100),
+      over: spent > limit,
+      left: r2(limit - spent),
+    });
+  });
+  out.sort(function(a, b) { return b.pct - a.pct; });
+  return out;
+}
+
+// 预算总览：所有已设预算的分类合计
+function budgetTotal(entries, budgets) {
+  var rows = budgetStatus(entries, budgets);
+  var spent = 0, limit = 0;
+  rows.forEach(function(r) { spent += r.spent; limit += r.budget; });
+  return {
+    count: rows.length, spent: r2(spent), budget: r2(limit),
+    pct: limit > 0 ? r2(spent / limit * 100) : 0,
+    overCount: rows.filter(function(r) { return r.over; }).length,
+  };
+}
+
+// 流水搜索。匹配备注与分类名；纯数字则同时按金额匹配。
+// 金额用「包含」而非相等：输入 35 能找到 35.50，不必记全。
+function filterFlow(entries, q) {
+  var s = String(q || '').trim().toLowerCase();
+  if (!s) return (entries || []).map(function(e, i) { return { e: e, i: i }; });
+  return (entries || []).map(function(e, i) { return { e: e, i: i }; })
+    .filter(function(x) {
+      var e = x.e;
+      var note = String(e.n || '').toLowerCase();
+      var cat = ledgerCat(e.t, e.c).name;
+      var amt = String(ledgerAmount(e.a));
+      return note.indexOf(s) >= 0 || cat.indexOf(s) >= 0 || amt.indexOf(s) >= 0;
+    });
+}
+
+// 固定支出模板 → 待生成的记录。
+// 已存在同指纹的就跳过，避免同一个月点两次生成出双份。
+function recurringToAdd(templates, existing) {
+  var seen = {};
+  (existing || []).forEach(function(e) { seen[billFingerprint(e)] = 1; });
+  var out = [];
+  (templates || []).forEach(function(t) {
+    var amt = ledgerAmount(t.a);
+    if (amt <= 0) return;
+    var e = {
+      d: clamp(parseInt(t.d, 10) || 1, 1, 31),
+      t: t.t === 'i' ? 'i' : 'e',
+      c: ledgerCat(t.t, t.c).key,
+      a: amt,
+      n: String(t.n || '').slice(0, 20),
+    };
+    if (seen[billFingerprint(e)]) return;
+    seen[billFingerprint(e)] = 1;        // 模板自身重复也只生成一条
+    out.push(e);
+  });
+  return out;
+}
+
 // ══════════════ PURE-LOGIC END ══════════════
 
 // ═══════════════════════════════════════════════════════════
@@ -1977,6 +2235,29 @@ function loadHours(y, m) { return lsJson(hoursKey(y, m), {}); }
 function saveHours(y, m, data) { lsSet(hoursKey(y, m), JSON.stringify(data)); }
 // ── 流水存储：按月一个键，与工时同构 ──
 function ledgerKey(y, m) { return 'salary-ledger-' + y + '-' + pad2(m); }
+
+// 预算与固定支出都是跨月的设定，不按月存
+var BUDGET_KEY = 'salary-budget';
+var RECUR_KEY  = 'salary-recurring';
+
+function loadBudgets() {
+  var v = lsJson(BUDGET_KEY, {});
+  return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {};
+}
+function saveBudgets(b) { lsSet(BUDGET_KEY, JSON.stringify(b)); }
+
+function loadRecurring() {
+  var v = lsJson(RECUR_KEY, []);
+  return Array.isArray(v) ? v : [];
+}
+function saveRecurring(list) { lsSet(RECUR_KEY, JSON.stringify(list)); }
+
+// 取全年 12 个月的流水，年度汇总要用
+function loadYearLedgers(y) {
+  var out = [];
+  for (var m = 1; m <= 12; m++) out.push(loadLedger(y, m));
+  return out;
+}
 
 function loadLedger(y, m) {
   var v = lsJson(ledgerKey(y, m), []);
@@ -2180,8 +2461,10 @@ function calc() {
   renderMonthTable(months, sel, tot);
   calcReverse();
 
-  // 工资变了结余也跟着变，但要防递归：renderLedger 里调 calcYear 而非 calc
+  // 工资变了结余与年度页都跟着变，但要防递归：
+  // 这两个渲染里调的是 calcYear 而非 calc
   if (flMonth) renderLedger();
+  renderYear();
 
   saveForm();
 }
@@ -3259,6 +3542,196 @@ function commitImport() {
   alert('已导入 ' + n + ' 条，覆盖 ' + months + ' 个月份。');
 }
 
+// ── 预算 ──
+function renderBudget(list) {
+  var budgets = loadBudgets();
+  var rows = budgetStatus(list, budgets);
+  var tot = budgetTotal(list, budgets);
+
+  setText('budHint', tot.count
+    ? (tot.overCount ? tot.overCount + ' 项超支' : '已用 ' + tot.pct.toFixed(0) + '%')
+    : '还没设');
+
+  $('budList').innerHTML = rows.length ? rows.map(function(r) {
+    var cls = r.over ? 'over' : r.pct >= 80 ? 'warn' : '';
+    return '<div class="row">' +
+      catIcon(r) +
+      '<div class="row-main">' +
+        '<div class="row-label">' + r.name +
+          '<span class="sub' + (r.over ? ' bud-over' : '') + '">' +
+          (r.over ? '超 ¥' + fmt0(-r.left) : '剩 ¥' + fmt0(r.left)) + '</span></div>' +
+        '<div class="bud-bar" style="margin-top:5px"><span class="' + cls +
+          '" style="width:' + Math.min(100, r.pct).toFixed(1) + '%"></span></div>' +
+      '</div>' +
+      '<span class="row-value' + (r.over ? ' neg' : ' dark') + '">' +
+        fmt0(r.spent) + ' / ' + fmt0(r.budget) + '</span>' +
+    '</div>';
+  }).join('') : '<div class="fl-empty">还没设预算</div>';
+
+  // 编辑区：每个支出分类一行输入
+  if (!$('budEdit').dataset.built) {
+    $('budEdit').innerHTML = LEDGER_CATS.e.map(function(c) {
+      return '<div class="row">' + catIcon(c) +
+        '<span class="row-label">' + c.name + '</span>' +
+        '<span class="row-money"><input type="number" inputmode="decimal" class="row-input" ' +
+          'id="bud-' + c.key + '" placeholder="不限" step="1" min="0" ' +
+          'oninput="setBudget(\'' + c.key + '\', this.value)"></span></div>';
+    }).join('');
+    $('budEdit').dataset.built = '1';
+    LEDGER_CATS.e.forEach(function(c) {
+      var v = budgets[c.key];
+      if (v > 0) $('bud-' + c.key).value = v;
+    });
+  }
+}
+
+function setBudget(key, val) {
+  var b = loadBudgets();
+  var n = Math.max(0, parseFloat(val) || 0);
+  if (n > 0) b[key] = n; else delete b[key];
+  saveBudgets(b);
+  renderLedger();
+}
+
+// ── 固定支出 ──
+var recCat = 'home';
+
+function buildRecCatGrid() {
+  $('recCatGrid').innerHTML = LEDGER_CATS.e.map(function(c) {
+    return '<div class="cat-cell' + (c.key === recCat ? ' on' : '') +
+      '" onclick="pickRecCat(\'' + c.key + '\')">' + catIcon(c) +
+      '<span>' + c.name + '</span></div>';
+  }).join('');
+}
+function pickRecCat(k) { recCat = k; buildRecCatGrid(); }
+
+function buildRecDaySelect() {
+  var h = '';
+  for (var d = 1; d <= 28; d++) h += '<option value="' + d + '">' + d + ' 号</option>';
+  // 只到 28：29~31 在 2 月不存在，固定支出按月循环，取值必须每月都有
+  $('recDay').innerHTML = h;
+}
+
+function addRecurring() {
+  var amt = ledgerAmount($('recAmt').value);
+  if (amt <= 0) { alert('先填金额。'); return; }
+  var list = loadRecurring();
+  list.push({
+    d: parseInt(selVal('recDay'), 10) || 1,
+    t: 'e', c: recCat, a: amt,
+    n: ($('recNote').value || ledgerCat('e', recCat).name).slice(0, 20),
+  });
+  saveRecurring(list);
+  $('recAmt').value = '';
+  $('recNote').value = '';
+  renderLedger();
+}
+
+function delRecurring(i) {
+  var list = loadRecurring();
+  if (i < 0 || i >= list.length) return;
+  list.splice(i, 1);
+  saveRecurring(list);
+  renderLedger();
+}
+
+function renderRecurring(list) {
+  var tpl = loadRecurring();
+  var pending = recurringToAdd(tpl, list);
+  var sum = 0;
+  tpl.forEach(function(t) { sum += ledgerAmount(t.a); });
+  setText('recHint', tpl.length ? '每月 ¥' + fmt0(sum) : '还没设');
+
+  var html = tpl.map(function(t, i) {
+    var c = ledgerCat('e', t.c);
+    return '<div class="row">' + catIcon(c) +
+      '<div class="row-main">' +
+        '<div class="row-label">' + esc(t.n || c.name) + '</div>' +
+        '<div class="row-desc">每月 ' + t.d + ' 号</div>' +
+      '</div>' +
+      '<span class="row-value dark">¥' + fmt(ledgerAmount(t.a)) + '</span>' +
+      '<button class="fl-del" onclick="delRecurring(' + i + ')" aria-label="删除">✕</button>' +
+    '</div>';
+  }).join('');
+
+  if (tpl.length) {
+    html += pending.length
+      ? '<button class="row row-action" onclick="genRecurring()">一键生成本月（' + pending.length + ' 条）</button>'
+      : '<div class="fl-empty">本月已全部生成</div>';
+  } else {
+    html = '<div class="fl-empty">还没有固定支出</div>';
+  }
+  $('recList').innerHTML = html;
+}
+
+function genRecurring() {
+  var list = loadLedger(calYear, flMonth);
+  var add = recurringToAdd(loadRecurring(), list);
+  if (!add.length) { alert('本月已经全部生成过了。'); return; }
+  saveLedger(calYear, flMonth, list.concat(add));
+  renderLedger();
+  alert('已生成 ' + add.length + ' 条。');
+}
+
+function clearFlSearch() {
+  $('flSearch').value = '';
+  renderLedger();
+}
+
+// ── 年度 ──
+function renderYear() {
+  var months = calcYear();
+  var yeb = calcYearEndBonus();
+  var an = annualSummary(months, loadYearLedgers(calYear), yeb.net);
+  var ot = overtimeSummary(months, num('baseSalary'));
+
+  setText('yrLabel', calYear + ' 年');
+  setMoney('yrBalance', an.balance);
+  setText('yrSub', '流入 ¥' + fmt0(an.inflow) + ' · 支出 ¥' + fmt0(an.expense));
+  setText('yrRate', an.saveRate.toFixed(1) + '%');
+  setText('yrRateDesc', an.inflow > 0
+    ? '流入 ¥' + fmt0(an.inflow) + ' 里存下 ¥' + fmt0(an.balance)
+    : '还没有数据');
+
+  setMoney('yrTakeHome', an.takeHome);
+  setMoney('yrYeb', an.yebNet);
+  setMoney('yrExtra', an.extraIncome);
+  setMoney('yrInflow', an.inflow);
+
+  // 趋势：柱高按当年最大值归一，收入与支出共用同一标尺才可比
+  var max = 0;
+  an.series.forEach(function(s) {
+    max = Math.max(max, Math.abs(s.balance), s.expense);
+  });
+  $('yrTrend').innerHTML = an.series.map(function(s) {
+    var bh = max > 0 ? Math.abs(s.balance) / max * 100 : 0;
+    var eh = max > 0 ? s.expense / max * 100 : 0;
+    return '<div class="tcol' + (s.m === calMonth ? ' cur' : '') + '">' +
+      '<div class="tbars">' +
+        '<div class="tbar tbal' + (s.balance < 0 ? ' neg' : '') + '" style="height:' + bh.toFixed(1) + '%"></div>' +
+        '<div class="tbar texp" style="height:' + eh.toFixed(1) + '%"></div>' +
+      '</div><div class="tm">' + s.m + '</div></div>';
+  }).join('');
+
+  var best = an.series.slice().sort(function(a, b) { return b.expense - a.expense; })[0];
+  setText('yrTrendFoot', max > 0 && best && best.expense > 0
+    ? '花得最多的是 ' + best.m + ' 月，¥' + fmt0(best.expense) + '。未记账的月份支出显示为 0。'
+    : '还没有记账数据，柱子只反映工资结余。');
+
+  setText('yrOt15', ot.h15.toFixed(1) + 'h');
+  setText('yrOt2', ot.h2.toFixed(1) + 'h');
+  setText('yrOt3', ot.h3.toFixed(1) + 'h');
+  setText('yrOtHours', ot.hours.toFixed(1) + 'h');
+  setText('yrOtDays', ot.hours > 0 ? '约 ' + ot.days.toFixed(1) + ' 个工作日' : '');
+  setMoney('yrOtPay', ot.pay);
+  setMoney('yrOtRate', ot.rate);
+  setText('yrOtCompare', ot.hours <= 0 ? '今年还没有加班记录'
+    : ot.normalRate <= 0 ? '填了底薪才能比较'
+    : ot.rate >= ot.normalRate
+      ? '高于正常时薪 ¥' + fmt(ot.normalRate) + '，加班划算'
+      : '低于正常时薪 ¥' + fmt(ot.normalRate) + '，等于在贱卖时间');
+}
+
 // 点日历某天：既筛选流水，也把录入日期切过去。再点同一天取消筛选。
 function pickSpDay(d) {
   flSelDay = (flSelDay === d) ? 0 : d;
@@ -3324,6 +3797,8 @@ function renderLedger() {
   var list = loadLedger(calYear, flMonth);
   var bal = ledgerBalance(list, takeHomeOf(flMonth));
   renderSpendCal(list);
+  renderRecurring(list);
+  renderBudget(list);
 
   $('flBalance').textContent = '¥' + fmt(bal.balance);
   $('flBalanceSub').textContent =
@@ -3356,19 +3831,24 @@ function renderLedger() {
 
   // ── 流水列表：按日期倒序，同日归组 ──
   // 筛选只影响显示，不影响上面的汇总与热力图 —— 那两处始终是整月口径
-  var shown = flSelDay
-    ? list.map(function(e, i) { return { e: e, i: i }; })
-          .filter(function(x) { return (parseInt(x.e.d, 10) || 1) === flSelDay; })
-    : list.map(function(e, i) { return { e: e, i: i }; });
+  // 搜索与日期筛选叠加：先按关键词过滤，再按选中的日期收窄
+  var shown = filterFlow(list, $('flSearch') ? $('flSearch').value : '');
+  if (flSelDay) {
+    shown = shown.filter(function(x) { return (parseInt(x.e.d, 10) || 1) === flSelDay; });
+  }
 
-  $('flCount').textContent = flSelDay
-    ? flMonth + '月' + flSelDay + '日 · ' + shown.length + ' 笔'
-    : (list.length ? list.length + ' 笔' : '');
+  var q = $('flSearch') ? $('flSearch').value.trim() : '';
+  setText('flCount', (flSelDay || q)
+    ? (flSelDay ? flMonth + '月' + flSelDay + '日 ' : '') + (q ? '搜「' + q + '」' : '') +
+      ' · ' + shown.length + ' 笔'
+    : (list.length ? list.length + ' 笔' : ''));
 
   var box = $('flList');
   if (!shown.length) {
     box.innerHTML = '<div class="fl-empty">' +
-      (flSelDay ? flMonth + ' 月 ' + flSelDay + ' 日没有记录' : '本月还没有记录') + '</div>';
+      (q ? '没有匹配「' + esc(q) + '」的记录'
+         : flSelDay ? flMonth + ' 月 ' + flSelDay + ' 日没有记录'
+         : '本月还没有记录') + '</div>';
     return;
   }
   // 带上原始下标再排序 —— 删除要按存储里的位置来，排序后的序号不能直接用
@@ -3549,7 +4029,10 @@ function syncMonthSelect() {
   flMonth = calMonth;
   buildFlMonthSelect();
   buildCatGrid();
+  buildRecCatGrid();
+  buildRecDaySelect();
   renderLedger();
+  renderYear();
 })();
 </script>
 

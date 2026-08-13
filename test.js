@@ -20,7 +20,9 @@ var EXPORTS = ['CITIES', 'CITY_KEYS', 'CUSTOM_CITY_DEFAULT', 'socialInsOf', 'hou
   'parseBill', 'billFingerprint',
   'xmlUnescape', 'colRefToIndex', 'parseSharedStrings', 'excelSerialToDate',
   'looksLikeSerialDate', 'parseSheetXml',
-  'sanitizeBackupText', 'backupDiagnosis'];
+  'sanitizeBackupText', 'backupDiagnosis',
+  'annualSummary', 'overtimeSummary', 'budgetStatus', 'budgetTotal',
+  'filterFlow', 'recurringToAdd'];
 
 var L = {};
 new Function('__e', m[1] + '\n;' + EXPORTS.map(function(k) {
@@ -928,6 +930,130 @@ ok(dCut.indexOf('截断') >= 0 || dCut.indexOf('配平') >= 0, '截断能被诊�
 var junk = L.backupDiagnosis('hello world', L.sanitizeBackupText('hello world'));
 ok(junk.indexOf('_magic') >= 0, '缺 _magic 会被指出 → ' + junk);
 ok(L.backupDiagnosis(good, good).indexOf('长度') >= 0, '诊断里带长度');
+
+// ═══ 14. 年度汇总 / 预算 / 搜索 / 固定支出 ═══
+section('14. 年度汇总 / 预算 / 搜索 / 固定支出');
+
+// ── 年度汇总 ──
+var sm = [];
+for (var mi = 0; mi < 12; mi++) sm.push({ net: 10000, otPay: 0, hours: { ot15: 0, ot2: 0, ot3: 0 } });
+var lg = [];
+for (var li = 0; li < 12; li++) lg.push([{ d: 1, t: 'e', c: 'food', a: 2000 }]);
+lg[0].push({ d: 5, t: 'i', c: 'side', a: 500 });
+
+var an = L.annualSummary(sm, lg, 30000);
+near(an.takeHome, 120000, '全年工资到手 10,000×12');
+near(an.extraIncome, 500, '额外收入 500');
+near(an.yebNet, 30000, '年终奖到手计入');
+near(an.inflow, 150500, '总流入 = 工资 + 额外 + 年终奖');
+near(an.expense, 24000, '全年支出 2,000×12');
+near(an.balance, 126500, '结余 = 流入 − 支出');
+near(an.saveRate, 84.05, '储蓄率按总流入算', 0.05);
+eq(an.series.length, 12, '按月序列 12 项');
+eq(an.series[0].m, 1, '首项是 1 月');
+near(an.series[0].income, 10500, '1 月流入含额外收入');
+near(an.series[1].income, 10000, '2 月流入只有工资');
+near(an.series[0].balance, 8500, '1 月结余');
+
+// 储蓄率分母用总流入而非工资：有副业的人只看工资会算高
+var noYeb = L.annualSummary(sm, lg, 0);
+ok(noYeb.saveRate < an.saveRate, '年终奖计入后储蓄率更高');
+var empty = L.annualSummary([], [], 0);
+eq(empty.saveRate, 0, '无数据时储蓄率给 0 而非 NaN');
+eq(empty.series.length, 12, '无数据也返回 12 个月');
+
+// ── 加班统计 ──
+var otm = [
+  { otPay: 1000, hours: { ot15: 10, ot2: 5, ot3: 0 } },
+  { otPay: 500,  hours: { ot15: 4,  ot2: 0, ot3: 2 } },
+];
+var ot = L.overtimeSummary(otm, 17400);
+near(ot.h15, 14, '工作日加班合计 14h');
+near(ot.h2, 5, '休息日加班 5h');
+near(ot.h3, 2, '法定假加班 2h');
+near(ot.hours, 21, '总加班 21h');
+near(ot.pay, 1500, '加班费合计 1,500');
+near(ot.rate, 71.43, '折合加班时薪 1500/21', 0.01);
+near(ot.normalRate, 100, '正常时薪 17400/174 = 100');
+near(ot.days, 2.625, '折合 21/8 天');
+ok(ot.rate < ot.normalRate, '本例加班时薪低于正常时薪（可据此判断值不值）');
+var noOt = L.overtimeSummary([{ otPay: 0, hours: { ot15: 0, ot2: 0, ot3: 0 } }], 17400);
+eq(noOt.rate, 0, '没加班时时薪给 0 而非 NaN');
+eq(L.overtimeSummary([], 0).normalRate, 0, '没填底薪时正常时薪给 0');
+
+// ── 预算 ──
+var flow = [
+  { d: 1, t: 'e', c: 'food', a: 1800 },
+  { d: 2, t: 'e', c: 'shop', a: 900 },
+  { d: 3, t: 'e', c: 'fun',  a: 100 },
+];
+var budgets = { food: 1500, shop: 1000 };
+var bs = L.budgetStatus(flow, budgets);
+eq(bs.length, 2, '只统计设了预算的分类');
+eq(bs[0].key, 'food', '超支最多的排最前');
+near(bs[0].pct, 120, '餐饮 1800/1500 = 120%');
+ok(bs[0].over, '餐饮超支');
+near(bs[0].left, -300, '餐饮超出 300');
+eq(bs[1].key, 'shop', '第二项购物');
+near(bs[1].pct, 90, '购物 900/1000 = 90%');
+ok(!bs[1].over, '购物未超支');
+near(bs[1].left, 100, '购物还剩 100');
+eq(L.budgetStatus(flow, {}).length, 0, '没设预算时为空');
+eq(L.budgetStatus(flow, { food: 0 }).length, 0, '预算为 0 视同没设');
+
+var bt = L.budgetTotal(flow, budgets);
+eq(bt.count, 2, '预算分类数 2');
+near(bt.spent, 2700, '已花 1800+900');
+near(bt.budget, 2500, '预算合计 2,500');
+near(bt.pct, 108, '整体 108%');
+eq(bt.overCount, 1, '超支分类 1 个');
+eq(L.budgetTotal(flow, {}).pct, 0, '无预算时百分比给 0');
+
+// ── 搜索 ──
+var sflow = [
+  { d: 1, t: 'e', c: 'food', a: 35.5, n: '美团外卖' },
+  { d: 2, t: 'e', c: 'shop', a: 199,  n: '京东' },
+  { d: 3, t: 'i', c: 'side', a: 800,  n: '兼职收入' },
+];
+eq(L.filterFlow(sflow, '').length, 3, '空关键词返回全部');
+eq(L.filterFlow(sflow, '美团').length, 1, '按备注搜索');
+eq(L.filterFlow(sflow, '餐饮').length, 1, '按分类名搜索');
+eq(L.filterFlow(sflow, '199').length, 1, '按金额搜索');
+eq(L.filterFlow(sflow, '35').length, 1, '金额用包含匹配，35 能找到 35.5');
+eq(L.filterFlow(sflow, '不存在').length, 0, '搜不到返回空');
+eq(L.filterFlow(sflow, '  美团  ').length, 1, '首尾空白被忽略');
+// 返回值要带原始下标，否则删除会删错条目
+eq(L.filterFlow(sflow, '京东')[0].i, 1, '保留原始下标');
+
+// ── 固定支出 ──
+var tpl = [
+  { d: 1,  t: 'e', c: 'home',    a: 3000, n: '房租' },
+  { d: 10, t: 'e', c: 'fun',     a: 25,   n: '视频会员' },
+  { d: 5,  t: 'e', c: 'home',    a: 0,    n: '金额为零' },
+];
+var add1 = L.recurringToAdd(tpl, []);
+eq(add1.length, 2, '金额为 0 的模板被跳过');
+eq(add1[0].n, '房租', '第一条是房租');
+near(add1[0].a, 3000, '金额 3,000');
+eq(add1[0].d, 1, '日期 1');
+
+// 已生成过就不再重复，避免同月点两次出双份
+var add2 = L.recurringToAdd(tpl, add1);
+eq(add2.length, 0, '已存在的模板不重复生成');
+var add3 = L.recurringToAdd(tpl, [add1[0]]);
+eq(add3.length, 1, '只生成尚未存在的那条');
+
+// 模板自身重复也只生成一条
+var dupTpl = [
+  { d: 1, t: 'e', c: 'home', a: 3000, n: '房租' },
+  { d: 1, t: 'e', c: 'home', a: 3000, n: '房租' },
+];
+eq(L.recurringToAdd(dupTpl, []).length, 1, '模板内部重复只生成一条');
+
+// 日期越界要夹住
+eq(L.recurringToAdd([{ d: 99, t: 'e', c: 'home', a: 100, n: 'x' }], [])[0].d, 31, '日期夹到 31');
+eq(L.recurringToAdd([{ d: 0, t: 'e', c: 'home', a: 100, n: 'x' }], [])[0].d, 1, '日期夹到 1');
+eq(L.recurringToAdd([], []).length, 0, '空模板返回空');
 
 // ── 汇总 ──
 console.log('\n' + '─'.repeat(46));
