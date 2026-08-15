@@ -7,3 +7,8 @@ android/.gradle/
 android/local.properties
 *.apk
 *.aab
+
+# 本地调试用的截图与临时验证脚本（headless Chrome dump、注入版页面等），
+# 体积不小且没有复现价值，别让 git add -A 把它们带进公开仓库历史
+.shot/
+

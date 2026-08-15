@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -24,6 +24,30 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      # 断言全绿才继续。放在最前面：APK 只是加载页面的壳，
+      # 算错钱的逻辑不该有机会被打进包里。
+      - name: Run tests
+        run: npm test
+
+      # docs/ 是 npm run build 从 www/ 生成的发布目录，GitHub Pages 直接读它。
+      # 只改 www/ 忘了跑 build 时，测试全绿、CI 全绿、提交信息也写着改了口径，
+      # 但线上跑的还是旧公式 —— 这已经真实发生过一次（7ea3c77，线上按旧口径
+      # 算了 34 分钟）。这一步就是补上那个纯人工环节：
+      # 重新生成一遍，如果与提交进来的 docs/ 有任何差异，说明忘了 build。
+      #
+      # 依赖两个前提，都已确认：build.js 的版本哈希只取自 www/ 源文件内容
+      # （不含时间戳、不含随机数），所以同输入同输出；.gitattributes 把行尾
+      # 钉成 LF，所以 Linux 上重建的字节与索引里的一致。
+      - name: Check docs/ is in sync with www/
+        run: |
+          npm run build
+          if ! git diff --quiet -- docs/; then
+            echo "::error::docs/ 与 www/ 不同步。改完 www/ 要跑 npm run build 并把 docs/ 一起提交。"
+            git diff --stat -- docs/
+            exit 1
+          fi
+          echo "docs/ 与 www/ 一致。"
 
       - name: Sync web assets
         run: npx cap sync

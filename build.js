@@ -28,8 +28,20 @@ if (!fs.existsSync(OUT)) fs.mkdirSync(OUT);
 // 只哈希 index.html 的话，「只换图标、不动页面」会算出同一个版本号，
 // 新 SW 不会安装，老用户永远拿着旧图标 —— 静默失效，很难察觉。
 // 读的都是 www/ 源文件（占位符还是 dev），所以值稳定、不产生自引用。
+// 哈希前必须把行尾归一，否则版本号与「在哪台机器上跑的 build」绑死。
+// Windows 检出（core.autocrlf=true）拿到 CRLF，Linux CI 拿到 LF，字节不同、
+// 内容相同。实测同一个 commit（be43a2c）能算出三个版本号：
+//   CRLF → fbfaefd4   LF → 3a8d6195   仓库里实际存的 → 66862b55
+// 后果有两层：线上版本号不可复现，无法用它核对「发的到底是哪份代码」；
+// 以及 CI 里「重跑 build 再比 docs/ 的 diff」这道一致性检查会永远失败，
+// 最后只能被关掉。用 latin1 往返做归一，逐字节无损，不依赖文件编码。
+var BINARY = { 'icon-512.png': true };
 var hash = crypto.createHash('md5');
-FILES.forEach(function(f) { hash.update(fs.readFileSync(path.join(SRC, f))); });
+FILES.forEach(function(f) {
+  var buf = fs.readFileSync(path.join(SRC, f));
+  if (!BINARY[f]) buf = Buffer.from(buf.toString('latin1').replace(/\r\n/g, '\n'), 'latin1');
+  hash.update(buf);
+});
 var version = hash.digest('hex').slice(0, 8);
 
 var BUILD_TAG = /<span class="build"([^>]*)>[^<]*<\/span>/;

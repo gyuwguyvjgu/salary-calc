@@ -50,6 +50,8 @@
     --cal-other: #fafafc;
     --cal-stat:  #fff1f0;
     --cal-make:  #f0f7ff;
+    --sp-tile:   #f5f5f8;   /* 支出日历格子底：比 --field 再浅一档，白卡上只作轻微分块 */
+    --sp-bar-bg: #ebebf0;   /* 量条槽：没有支出的日子也留一道浅痕，行与行才对得齐 */
     --warn-bg: #fff4e0;  --warn-fg: #8a5a00;
     --crit-bg: #ffeceb;  --crit-fg: #b3271e;
 
@@ -97,6 +99,10 @@
       --cal-other: #0a0a0b;
       --cal-stat:  #2b1416;
       --cal-make:  #10202e;
+      /* 纯黑卡(#1c1c1e)上，浅灰格子要往亮的方向抬才看得出分块；
+         量条槽反过来要压暗，否则一片灰痕比橙条还抢眼 */
+      --sp-tile:   #26262a;
+      --sp-bar-bg: #303034;
       --warn-bg: #2a2010;  --warn-fg: #ffca55;
       --crit-bg: #2b1416;  --crit-fg: #ff8d84;
     }
@@ -505,34 +511,48 @@
   .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--sep-soft); overflow: hidden; }
   .bar > span { display: block; height: 100%; border-radius: 3px; background: var(--blue); }
 
-  /* ── 支出日历（热力图）──
-     用橙色浓淡表示当日花销：红色在本应用里已经代表负数与危险操作，
-     绿色代表收入，蓝色是交互色，橙色是唯一不冲突的暖色。 */
+  /* ── 支出日历（浅底格子 + 底部量条）──
+     不用橙色浓淡填满格子：橙底压橙字对比度不够（¥3,200 那种深档几乎读不出来），
+     且相邻深浅拼在一起整片斑驳。改成格子保持浅底、金额用正文色，
+     当日花销只由底部量条表达 —— 量化通道只留一条，数字永远清晰。
+     橙色仍是唯一可用的暖色：红代表负数与危险操作，绿代表收入，蓝是交互色。 */
   .sp-grid {
-    display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
-    background: var(--sep-soft); border-top: 1px solid var(--sep-soft);
+    display: grid; grid-template-columns: repeat(7, 1fr);
+    gap: 3px; padding: 6px;
   }
   .sp-cell {
-    background: var(--card); min-height: 52px; padding: 5px 2px 6px;
-    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    position: relative; min-height: 54px; padding: 15px 3px 12px;
+    border-radius: 9px; background: var(--sp-tile);
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 0;
     cursor: pointer; -webkit-tap-highlight-color: transparent;
   }
-  .sp-cell.blank { background: var(--cal-other); cursor: default; }
-  .sp-day { font-size: 11.5px; font-weight: 500; color: var(--label-2); }
-  .sp-amt { font-size: 10.5px; font-weight: 600; color: var(--orange); font-variant-numeric: tabular-nums; }
-  .sp-inc { font-size: 9.5px; color: var(--green); }
-  .sp-cell.sel { box-shadow: inset 0 0 0 2px var(--blue); }
-  .sp-cell.sel .sp-day { color: var(--blue); font-weight: 700; }
-  /* 四档浓淡，按当月最大单日支出分级 */
-  .sp-l1 { background: rgba(255,149,0,.10); }
-  .sp-l2 { background: rgba(255,149,0,.22); }
-  .sp-l3 { background: rgba(255,149,0,.38); }
-  .sp-l4 { background: rgba(255,149,0,.55); }
-  .sp-legend {
-    display: flex; align-items: center; gap: 6px; justify-content: flex-end;
-    padding: 8px 16px 0; font-size: 11px; color: var(--label-3);
+  /* 月初对齐用的占位格：不画底色，免得月外和"当天没花钱"看起来一样 */
+  .sp-cell.blank { background: none; cursor: default; min-height: 0; padding: 0; }
+  /* 日期号与金额都是数字，靠字号深浅区分不开（8 号花 8 元、22 号花 76 元全靠猜）。
+     把日期钉到左上角当角标 —— 位置是类别信号，不用比大小就知道哪个是哪个。 */
+  .sp-day {
+    position: absolute; top: 3px; left: 6px;
+    font-size: 9.5px; font-weight: 600; color: var(--label-2);
+    font-variant-numeric: tabular-nums; line-height: 1;
   }
-  .sp-legend i { width: 14px; height: 10px; border-radius: 2px; }
+  .sp-amt {
+    font-size: 13px; font-weight: 700; color: var(--label);
+    font-variant-numeric: tabular-nums; letter-spacing: -.3px; line-height: 1.15;
+    white-space: nowrap;
+  }
+  /* ¥ 是第二道线索：即使角标没看见，带货币符号的那个也一定是钱。
+     压小并降一档色，让它只做标记不抢数字的位置。 */
+  .sp-cur { font-size: 9px; font-weight: 600; color: var(--label-2); margin-right: .5px; }
+  .sp-inc { font-size: 9.5px; font-weight: 600; color: var(--green); line-height: 1.3; white-space: nowrap; }
+  /* 量条贴格子底部，所有格子同一起点、同一长度基准，横向才好比 */
+  .sp-bar {
+    position: absolute; left: 7px; right: 7px; bottom: 5px; height: 3px;
+    border-radius: 2px; background: var(--sp-bar-bg); overflow: hidden;
+  }
+  .sp-bar > i { display: block; height: 100%; border-radius: 2px; background: var(--orange); }
+  .sp-cell.sel { background: var(--blue-tint); box-shadow: inset 0 0 0 1.5px var(--blue); }
+  .sp-cell.sel .sp-day { color: var(--blue); font-weight: 700; }
 
   /* 备份文本框：手机上下载常被拦掉，得能直接选中复制 */
   .bk-text {
@@ -605,6 +625,10 @@
     .row-money { width: 128px; }
     .cal-cell { min-height: 52px; }
     .cal-cell input { font-size: 12px; }
+    /* 窄屏上一格只有 38px（320px 屏），"¥1288" 按 13px 要 36.6px、
+       减掉左右内边距就装不下了，所以这里同时收字号和内边距 */
+    .sp-cell { padding-left: 2px; padding-right: 2px; }
+    .sp-amt { font-size: 12px; letter-spacing: -.4px; }
     .ratio-bar { width: 88px; }
   }
 
@@ -708,7 +732,7 @@
 
     <!-- 支出日历 -->
     <div class="group">
-      <div class="group-title">每日支出<span id="spHint">颜色越深花得越多</span></div>
+      <div class="group-title">每日支出<span id="spHint">还没有支出记录</span></div>
       <div class="card">
         <div class="cal-weekdays">
           <div class="cal-day-name">一</div><div class="cal-day-name">二</div><div class="cal-day-name">三</div>
@@ -717,10 +741,7 @@
         </div>
         <div class="sp-grid" id="spGrid"></div>
       </div>
-      <div class="sp-legend">
-        <span>少</span><i class="sp-l1"></i><i class="sp-l2"></i><i class="sp-l3"></i><i class="sp-l4"></i><span>多</span>
-      </div>
-      <div class="group-foot">点某天可只看当天的流水，并把下面的录入日期切到那天；再点一次取消。</div>
+      <div class="group-foot">底部橙条越长当天花得越多，最长的一条就是本月单日最高。点某天可只看当天的流水，并把下面的录入日期切到那天；再点一次取消。</div>
     </div>
 
     <!-- 记一笔 -->
@@ -1485,6 +1506,18 @@ function ymd(y, m, d) { return y + '-' + pad2(m) + '-' + pad2(d); }
 function r2(n) { return Math.round(n * 100) / 100; }
 function fmt(n) { return r2(n).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
 function fmt0(n) { return Math.round(n).toLocaleString('zh-CN'); }
+
+// 紧凑金额：给窄容器用。支出日历一格在 360px 手机上只有约 43px，
+// 而 "¥13,888" 按 13px 字重 700 要 47.8px —— 会顶穿格子。
+// 去掉千分位、万以上折成「1.4万」，10 万以上连小数一起去掉。
+// 精确金额在下面的流水列表里，这里只需要能扫视比较。
+function fmtTight(n) {
+  var v = Math.round(Math.abs(r2(n)));
+  if (v < 10000) return String(v);
+  var w = v / 10000;
+  return (w >= 10 ? String(Math.round(w))
+                  : (Math.round(w * 10) / 10).toFixed(1).replace(/\.0$/, '')) + '万';
+}
 // 扣款金额：为 0 时不带负号，'-¥0.00' 看着像出错了
 function fmtNeg(n) { return (r2(n) > 0 ? '-¥' : '¥') + fmt(n); }
 function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
@@ -1610,6 +1643,24 @@ function absenceDeductOf(fixedPay, hours) {
 function otPayOf(base, hours) {
   if (base <= 0) return 0;
   return (base / MONTH_HOURS) * (hours.ot15 * 1.5 + hours.ot2 * 2 + hours.ot3 * 3);
+}
+
+// 这一年算不算「在职」—— 决定要不要逐月扣社保公积金。
+//
+// 判定看的是**工资来源**，不是当月实际到手：只要有工资构成就算在职，
+// 哪怕某个月整月请假把收入扣成 0，社保照缴（accumulateTax 里 active 的既有
+// 语义，见 test.js「在职期间即使当月工资被缺勤扣光，社保照缴」）。
+//
+// monthlyPays 是逐月的 { bonus, sub }，必须传实际生效的值（含「全年逐月明细」
+// 里的按月覆盖），不能只看三个默认输入框。曾经就是只看默认值：
+// 底薪/绩效/补贴全留空、只在逐月表里逐月填奖金时被判成未在职，社保公积金
+// 强制归零，当月明细里社保写着 ¥0.00，而同一屏的社保卡片仍按真实基数显示
+// 「深圳 521.58/月」，前后矛盾，全年到手高估约 7 千、个税还多算 777.10。
+function isEmployedYear(base, monthlyPays) {
+  if (base > 0) return true;
+  return (monthlyPays || []).some(function(p) {
+    return !!p && ((p.bonus > 0) || (p.sub > 0));
+  });
 }
 
 // 全年一次性奖金：÷12 只用于查税率档位
@@ -1791,23 +1842,43 @@ function ledgerBalance(entries, takeHome) {
 
 // 逐字符解析，处理引号包裹、字段内逗号与换行。
 // 不能用 split(',')：账单的商品说明里经常带逗号，一 split 整行就错位。
-function parseCSV(text) {
+//
+// 关于引号有两条来之不易的规则，改之前先看 test.js 的「引号异常」那组：
+//
+// 1) 只有出现在字段开头的引号才是「包裹引号」。字段中途的引号是字面量。
+//    淘宝商品标题里的英寸号（24" 显示器）、备注里用户自己打的引号都属于后者，
+//    而支付宝旧版导出不给字段加外层引号也不转义内部引号。把中途引号当成
+//    开引号的话，解析器会一直找不到配对的闭引号，把文件剩下的全部内容
+//    （逗号、换行一并）吞进这一个字段 —— 一个英寸号吃掉整月账单，且不报错。
+//
+// 2) 万一整份文件的引号仍然不配对（结束时还在引号内），说明这份导出根本
+//    不遵守引号规则。这时不能将错就错，整份改按纯分隔符再解一遍：
+//    宁可让个别引号留在文本里，也不能把几百行并成一行。
+function scanCSV(s, honorQuotes) {
   var rows = [], row = [], cur = '', q = false;
-  var s = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   for (var i = 0; i < s.length; i++) {
     var ch = s[i];
     if (q) {
       // 引号内的连续两个引号是转义的字面量引号
       if (ch === '"') { if (s[i + 1] === '"') { cur += '"'; i++; } else q = false; }
       else cur += ch;
-    } else if (ch === '"') { q = true; }
+    }
+    // cur === '' 即「还在字段开头」，是包裹引号与字面量引号的分界
+    else if (honorQuotes && ch === '"' && cur === '') { q = true; }
     else if (ch === ',') { row.push(cur); cur = ''; }
     else if (ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
     else cur += ch;
   }
   if (cur !== '' || row.length) { row.push(cur); rows.push(row); }
+  return { rows: rows, unbalanced: q };
+}
+
+function parseCSV(text) {
+  var s = String(text || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  var out = scanCSV(s, true);
+  if (out.unbalanced) out = scanCSV(s, false);
   // 账单里空行不少，直接丢掉
-  return rows.filter(function(r) {
+  return out.rows.filter(function(r) {
     return r.some(function(c) { return String(c).trim() !== ''; });
   });
 }
@@ -1952,7 +2023,10 @@ function colRefToIndex(ref) {
 // 一个 <si> 里可能有多个 <r><t>（富文本分段），要全部拼起来。
 function parseSharedStrings(xml) {
   var out = [];
-  var items = String(xml || '').match(/<si[\s>][\s\S]*?<\/si>|<si\/>/g) || [];
+  // 自闭合分支必须排在前面，理由见 parseSheetXml 上方的长注释。
+  // 这里错位的代价最大：<si/> 是空字符串，被吞掉会让它之后所有共享字符串
+  // 的索引整体前移一位，整张表的文字全部错乱，而且看起来"像是导出的就这样"。
+  var items = String(xml || '').match(/<si[^>]*\/>|<si[\s>][\s\S]*?<\/si>/g) || [];
   items.forEach(function(si) {
     var parts = si.match(/<t[^>]*>([\s\S]*?)<\/t>/g) || [];
     out.push(parts.map(function(t) {
@@ -1986,12 +2060,23 @@ function looksLikeSerialDate(v) {
 
 // sheet XML → 二维数组。空单元格在 XML 里是省略的，
 // 所以必须按 r="B3" 里的列引用定位，不能顺序 push。
+//
+// 交替分支的顺序是有讲究的：自闭合的 <c .../> 必须写在前面。
+// 反过来写的话，<c[\s>][\s\S]*?<\/c> 会先命中自闭合标签的开头，
+// 然后一路懒惰匹配到**下一个**单元格的 </c>，把两格并成一个匹配 ——
+// 取到的是前一格的列号、后一格的值，于是金额落进备注列。
+// 触发条件很日常：Java POI / EasyExcel 给「有样式但没值」的单元格
+// 正是写成 <c r="B2" s="1"/>，而银行 xlsx 的备注、对方账号经常为空。
+// 失败方式是静默错列，下游只会觉得这行"格式不对"然后跳过。
 function parseSheetXml(xml, shared) {
   var rows = [];
-  var rowTags = String(xml || '').match(/<row[\s>][\s\S]*?<\/row>|<row[^>]*\/>/g) || [];
+  // <row> 这里同样把自闭合排前面，但只是与下面两处保持一致、避免下次照抄错的写法；
+  // 它本身没有可观测的失效场景：空行即使被并进下一行，内层单元格正则会重新扫描，
+  // 每个 <c> 自带列引用，输出不变。别为它写断言 —— 旧写法也是绿的。
+  var rowTags = String(xml || '').match(/<row[^>]*\/>|<row[\s>][\s\S]*?<\/row>/g) || [];
   rowTags.forEach(function(rt) {
     var cells = [];
-    var cellTags = rt.match(/<c[\s>][\s\S]*?<\/c>|<c[^>]*\/>/g) || [];
+    var cellTags = rt.match(/<c[^>]*\/>|<c[\s>][\s\S]*?<\/c>/g) || [];
     cellTags.forEach(function(ct) {
       var refM = ct.match(/\sr="([A-Z]+\d+)"/);
       var idx = refM ? colRefToIndex(refM[1]) : cells.length;
@@ -2435,8 +2520,10 @@ function calcYear() {
     grossList.push(gross);
   }
 
-  // 第二步：按累计预扣预缴法逐月算税
-  var active = (base > 0 || bonusDefault > 0 || subDefault > 0);
+  // 第二步：按累计预扣预缴法逐月算税。
+  // months 里的 bonus/sub 已经是 monthValue 解析过的实际生效值（含逐月覆盖），
+  // 所以直接传它 —— 判定逻辑本身在 isEmployedYear 里，那边有断言看着。
+  var active = isEmployedYear(base, months);
   var taxRows = accumulateTax(grossList, si, hf, specMonthly, active);
   for (var i = 0; i < months.length; i++) {
     var r = months[i], t = taxRows[i];
@@ -3780,17 +3867,20 @@ function renderSpendCal(list) {
   }
   for (var k in byDay) if (byDay[k].exp > maxDay) maxDay = byDay[k].exp;
 
-  // 分档按「有支出的天数」排名取四分位，不按最大值线性缩放。
-  // 线性缩放下，房租这种一笔大额会把最大值拉满，其余每天全挤进最浅一档，
-  // 整月看起来只有一个深格 —— 排名分档不受极值影响，始终能分出层次。
-  var amts = [];
-  for (var kk in byDay) if (byDay[kk].exp > 0) amts.push(byDay[kk].exp);
-  amts.sort(function(a, b) { return a - b; });
-  var levelOf = function(v) {
-    if (v <= 0 || !amts.length) return '';
-    var rank = 0;
-    while (rank < amts.length && amts[rank] < v) rank++;
-    return ' sp-l' + Math.min(4, Math.max(1, Math.ceil((rank + 1) / amts.length * 4)));
+  // 量条长度用平方根刻度。四种都试过：
+  //   线性       —— 房租这种一笔大额把条顶满，其余每天全成看不见的细线；
+  //   排名四分位 —— 不受极值影响，但长度和金额脱钩，
+  //                 两格之间差 10 倍还是 400 倍完全看不出来；
+  //   对数       —— 反过来把小额夸大：8 元能占到 3,200 元的 27%，一样骗人；
+  //   平方根     —— 压缩极值又不夸大小额（8 元 5%、289 元 30%、1,288 元 63%），
+  //                 且始终随金额单调递增。
+  // 条长仍不是严格的金额倍数，所以标题右侧同时给出单日最高的绝对值。
+  var barOf = function(v) {
+    if (v <= 0 || maxDay <= 0) return '<span class="sp-bar"></span>';
+    var r = Math.sqrt(v / maxDay);
+    // 最短留 7%：几块钱的一天也得看得见，否则跟没花钱无从区分
+    var pct = Math.max(7, Math.min(100, r * 100));
+    return '<span class="sp-bar"><i style="width:' + pct.toFixed(1) + '%"></i></span>';
   };
 
   var startDow = new Date(calYear, flMonth - 1, 1).getDay();
@@ -3801,19 +3891,19 @@ function renderSpendCal(list) {
 
   for (var day = 1; day <= total; day++) {
     var rec = byDay[day] || { exp: 0, inc: 0 };
-    html += '<div class="sp-cell' + levelOf(rec.exp) + (flSelDay === day ? ' sel' : '') +
+    html += '<div class="sp-cell' + (flSelDay === day ? ' sel' : '') +
       '" onclick="pickSpDay(' + day + ')">' +
       '<span class="sp-day">' + day + '</span>' +
-      (rec.exp > 0 ? '<span class="sp-amt">' + fmt0(rec.exp) + '</span>' : '') +
-      (rec.inc > 0 ? '<span class="sp-inc">+' + fmt0(rec.inc) + '</span>' : '') +
+      (rec.exp > 0 ? '<span class="sp-amt"><span class="sp-cur">¥</span>' + fmtTight(rec.exp) + '</span>' : '') +
+      (rec.inc > 0 ? '<span class="sp-inc">+' + fmtTight(rec.inc) + '</span>' : '') +
+      barOf(rec.exp) +
       '</div>';
   }
-  var rem = (startDow + total) % 7;
-  if (rem) for (var t = 0; t < 7 - rem; t++) html += '<div class="sp-cell blank"></div>';
+  // 末行不补空格：grid 会自然收边，补出来的空格白占一整行高度
 
   $('spGrid').innerHTML = html;
   $('spHint').textContent =
-    maxDay > 0 ? '单日最高 ¥' + fmt0(maxDay) : '颜色越深花得越多';
+    maxDay > 0 ? '单日最高 ¥' + fmt0(maxDay) : '还没有支出记录';
 }
 
 function renderLedger() {

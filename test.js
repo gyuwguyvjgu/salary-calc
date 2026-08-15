@@ -13,7 +13,9 @@ if (!m) {
 var EXPORTS = ['CITIES', 'CITY_KEYS', 'CUSTOM_CITY_DEFAULT', 'socialInsOf', 'housingFundOf',
   'TAX_ANNUAL', 'TAX_MONTHLY', 'HOLIDAYS', 'HOLIDAY_YEARS',
   'BASIC_DEDUCTION', 'MONTH_HOURS', 'YEB_CRITICAL', 'getDayMeta', 'taxOf', 'getMonthHoursFrom',
-  'accumulateTax', 'absenceDeductOf', 'otPayOf', 'yebTaxOf', 'yebBracket', 'daysInMonth', 'r2', 'ymd',
+  'fmtTight',
+  'accumulateTax', 'absenceDeductOf', 'otPayOf', 'isEmployedYear',
+  'yebTaxOf', 'yebBracket', 'daysInMonth', 'r2', 'ymd',
   'yebCompare', 'grossForNet',
   'LEDGER_CATS', 'ledgerCat', 'ledgerAmount', 'ledgerSummary', 'ledgerRanking', 'ledgerBalance',
   'parseCSV', 'detectBillHeader', 'guessCategory', 'parseBillAmount', 'isDeadStatus',
@@ -126,6 +128,40 @@ var onLeave = L.accumulateTax([0, 15000, 15000], SI, HFP, 0, true);
 near(onLeave[0].si, SI, '在职期间即使当月工资被缺勤扣光，社保照缴');
 near(onLeave[0].hf, HFP, '在职期间即使当月工资被缺勤扣光，公积金照缴');
 near(onLeave[0].tax, 0, '当月无收入时不产生个税');
+
+// ── 在职判定：active 这个参数从哪来 ──
+// 曾经写在 calcYear 里、只看三个默认输入框，漏掉「全年逐月明细」的按月覆盖。
+// 于是「底薪/绩效/补贴全留空、只在逐月表里填奖金」被判成未在职，社保公积金
+// 强制归零 —— 明细里社保显示 ¥0.00，而同屏的社保卡片仍写着真实的 521.58/月。
+// 抽成纯函数就是为了让这个判定进得了断言。
+var M12 = function(f) { var a = []; for (var i = 0; i < 12; i++) a.push(f(i + 1)); return a; };
+var ZERO = M12(function() { return { bonus: 0, sub: 0 }; });
+ok(L.isEmployedYear(20000, ZERO), '填了底薪就是在职');
+ok(!L.isEmployedYear(0, ZERO), '三项全空、逐月也全空 → 未在职');
+ok(L.isEmployedYear(0, M12(function() { return { bonus: 10000, sub: 0 }; })),
+   '底薪留空、逐月填了奖金 → 在职（曾经被判成未在职）');
+ok(L.isEmployedYear(0, M12(function(m) { return { bonus: m === 3 ? 5000 : 0, sub: 0 }; })),
+   '只有某一个月填了奖金也算在职');
+ok(L.isEmployedYear(0, M12(function() { return { bonus: 0, sub: 800 }; })),
+   '只有补贴同样算在职');
+ok(!L.isEmployedYear(0, []), '没有逐月数据 → 未在职');
+ok(!L.isEmployedYear(0, null), 'monthlyPays 缺失时不抛错');
+ok(!L.isEmployedYear(-100, ZERO), '负数底薪不算工资来源');
+ok(L.isEmployedYear(0, [null, undefined, { bonus: 100, sub: 0 }]), '数组里有空洞也不抛错');
+// 整月请假把收入扣成 0 不影响在职：判的是工资来源，不是当月到手
+ok(L.isEmployedYear(20000, ZERO), '底薪在、逐月无额外项，仍是在职（社保照缴）');
+
+// 判错的代价，端到端量一遍
+var gFull = []; for (var gi = 0; gi < 12; gi++) gFull.push(10000);
+function yearTotals(rows) {
+  var net = 0, tax = 0;
+  rows.forEach(function(r, i) { net += gFull[i] - r.si - r.hf - r.tax; tax += r.tax; });
+  return { net: net, tax: tax };
+}
+var asIdle = yearTotals(L.accumulateTax(gFull, 521.58, 126, 0, false));
+var asWork = yearTotals(L.accumulateTax(gFull, 521.58, 126, 0, true));
+near(asIdle.net - asWork.net, 6993.86, '判成未在职会把全年到手高估 6,993.86', 0.02);
+near(asIdle.tax - asWork.tax, 777.10, '同时全年个税多算 777.10', 0.02);
 
 // 收入骤降的月份税额按 0 计，且累计已预扣不回冲
 var drop = L.accumulateTax([80000, 3000, 3000], SI, HFP, 0, true);
@@ -389,12 +425,34 @@ eq(neg.ot15, 0, '负数不产生 1.5 倍加班');
 var negRest = L.getMonthHoursFrom(2026, 8, { 8: -8 });
 eq(negRest.ot2, 0, '休息日填 -8 不产生负数加班费');
 var huge = L.getMonthHoursFrom(2026, 8, { 5: 100 });
-eq(huge.ot15, 16, '工作日填 100 被夹逼��� 24h，加班 16h');
+eq(huge.ot15, 16, '工作日填 100 被夹逼到 24h，加班 16h');
 eq(huge.normal, huge.required, '夹逼后正常工时不受影响');
 var full24 = L.getMonthHoursFrom(2026, 8, { 8: 24 });
 eq(full24.ot2, 24, '休息日填满 24h 全额计 2 倍');
 var junk = L.getMonthHoursFrom(2026, 8, { 5: 'abc' });
 eq(junk.absent, 8, '非数字输入按 0 处理，记为缺勤');
+
+// ═══ 6c-2. 紧凑金额（支出日历格子只有约 43px 宽）═══
+section('6c-2. 紧凑金额');
+eq(L.fmtTight(0), '0', '0 显示为 0');
+eq(L.fmtTight(8), '8', '个位数原样');
+eq(L.fmtTight(289), '289', '三位数原样');
+eq(L.fmtTight(1288), '1288', '四位数去掉千分位，"1,288" 会顶穿格子');
+eq(L.fmtTight(9999), '9999', '不足一万仍给全数字');
+eq(L.fmtTight(10000), '1万', '整万不留小数尾巴，不是 "1.0万"');
+eq(L.fmtTight(13888), '1.4万', '万位保留一位小数');
+eq(L.fmtTight(99999), '10万', '9.99999 万进位到 10万，不是 "10.0万"');
+eq(L.fmtTight(138888), '14万', '十万以上去掉小数，"13.9万" 再长就顶格');
+eq(L.fmtTight(1388888), '139万', '百万级同样只给整数');
+eq(L.fmtTight(-1288), '1288', '取绝对值：正负由外层的 ¥/+ 前缀表达');
+eq(L.fmtTight(1288.6), '1289', '小数四舍五入');
+// 决定性质：输出长度必须始终压得住格子。
+// 带小数的写法只出现在 1万~9.9万 区间，所以现实最宽是 "¥9.9万"（约 36px）；
+// 十万以上反而更短（"14万"），因为小数被去掉了。
+var widest = 0;
+[0, 1, 99, 999, 1000, 9999, 10000, 55555, 99999, 100000, 999999, 12345678]
+  .forEach(function(v) { widest = Math.max(widest, L.fmtTight(v).length); });
+ok(widest <= 5, '任何金额的紧凑写法都不超过 5 个字符，实测最长 ' + widest);
 
 // ═══ 6d. 缺勤扣款与加班费 ═══
 section('6d. 缺勤扣款 / 加班费');
@@ -734,6 +792,32 @@ eq(c2[0][2], '普通', '未加引号的字段照常解析');
 eq(L.parseCSV('a,b\n\n\nc,d').length, 2, '空行被丢弃');
 eq(L.parseCSV('').length, 0, '空文本返回空数组');
 
+// ── 引号异常 ──
+// 曾经的真实故障：只要某个字段中途出现一个引号，解析器就进入引号模式再也
+// 出不来，把文件剩下的全部内容吞进同一个字段。一个英寸号吃掉整月账单，
+// 且不报错、导入预览还显示"正常跳过"。这一组就是钉住它不许回来。
+var inch = L.parseCSV('交易时间,商品说明,金额\n' +
+                      '2026-08-01,24" 显示器,1299\n' +
+                      '2026-08-02,咖啡,32\n' +
+                      '2026-08-03,地铁,8');
+eq(inch.length, 4, '字段中途的引号不吞掉后续行（曾经只剩 2 行）');
+eq(inch[1][1], '24" 显示器', '中途引号按字面量保留');
+eq(inch[1][2], '1299', '同一行后面的字段没有被并进来');
+eq(inch[3][2], '8', '最后一行完好');
+// 用户在备注里自己打引号，同样不该炸
+var note = L.parseCSV('a,他说"好",c\nd,e,f');
+eq(note.length, 2, '备注里成对的中途引号也不影响换行');
+eq(note[0][1], '他说"好"', '成对的中途引号原样保留');
+// 字段开头的引号仍然是包裹引号，不能因为上面的修复而失效
+eq(L.parseCSV('"含,逗号",x')[0][0], '含,逗号', '开头引号仍按包裹语义');
+eq(L.parseCSV('"a""b",x')[0][0], 'a"b', '包裹字段内的转义引号仍还原');
+eq(L.parseCSV('"",x')[0][0], '', '空的包裹字段');
+// 整份文件引号不配对时，宁可整份按纯分隔符重解，也不能把几百行并成一行
+var broken = L.parseCSV('时间,说明\n1,"没闭合的引号\n2,正常一行');
+eq(broken.length, 3, '引号不配对时降级重解，行数不塌陷');
+eq(broken[2][1], '正常一行', '降级后后续行仍可读');
+eq(broken[1][1], '"没闭合的引号', '降级后引号留在文本里，宁可多个字符也不丢数据');
+
 // ── 表头识别：正式表头前有说明行 ──
 var ali = [
   ['支付宝交易记录明细查询'],
@@ -855,7 +939,7 @@ eq(L.xmlUnescape('&#65;&#x42;'), 'AB', '数字与十六进制实体');
 // &amp; 必须最后还原，否则 &amp;lt; 会被二次解成 <
 eq(L.xmlUnescape('&amp;lt;'), '&lt;', '转义的实体不被二次还原');
 
-// ── 共享字符串（含富文本分段���──
+// ── 共享字符串（含富文本分段）──
 var sst = '<sst><si><t>交易时间</t></si><si><t>金额</t></si>' +
           '<si><r><t>富</t></r><r><t>文本</t></r></si><si/></sst>';
 var ss = L.parseSharedStrings(sst);
@@ -863,6 +947,12 @@ eq(ss[0], '交易时间', '第 0 条');
 eq(ss[1], '金额', '第 1 条');
 eq(ss[2], '富文本', '富文本多段拼接');
 eq(ss.length, 4, '自闭合的空 si 也占位（否则后续索引会错位）');
+// 上一条只覆盖了裸 <si/>。带属性的 <si xml:space="preserve"/> 才是导出端的常见写法，
+// 而它一旦被吞掉，之后所有共享字符串的索引整体前移，整张表的文字全部错乱。
+var ssAttr = L.parseSharedStrings(
+  '<sst count="3"><si><t>甲</t></si><si xml:space="preserve"/><si><t>丙</t></si></sst>');
+eq(ssAttr.length, 3, '带属性的自闭合 si 同样占位');
+eq(ssAttr[2], '丙', '空 si 之后的索引没有前移');
 
 // ── Excel 日期序列号 ──
 // 纪元 1899-12-30：Excel 沿用 Lotus 把 1900 当闰年的 bug，用 12-30 起算刚好抵消
@@ -894,6 +984,38 @@ eq(sh[1][0], '123.45', '数字按原样取字符串');
 eq(sh[1][1], '', '空单元格补空串');
 eq(sh[1][2], '丙', '跳过空列后仍落在正确列号');
 eq(sh[2][1], '行内', 'inlineStr 类型');
+
+// ── 自闭合单元格 ──
+// 上面几条测的是「单元格在 XML 里被整个省略」。这里测的是另一回事：
+// 单元格存在、但写成自闭合的 <c r="B2" s="1"/>（有样式没值）——
+// Java POI / EasyExcel 导出的银行账单里，空的备注、对方账号正是这个形态。
+// 曾经的真实故障：正则的交替分支把 <c[\s>]…</c> 写在前面，自闭合标签的开头
+// 会一路懒惰匹配到下一个单元格的 </c>，两格并成一个匹配 —— 用的是前一格的
+// 列号、后一格的值，金额于是落进备注列，下游看到「日期列不是日期」整行跳过。
+var selfClose = '<sheetData>' +
+  '<row r="1"><c r="A1" t="inlineStr"><is><t>日期</t></is></c>' +
+             '<c r="B1" t="inlineStr"><is><t>备注</t></is></c>' +
+             '<c r="C1" t="inlineStr"><is><t>金额</t></is></c></row>' +
+  '<row r="2"><c r="A2" t="inlineStr"><is><t>2026-08-01</t></is></c>' +
+             '<c r="B2" s="1"/>' +
+             '<c r="C2"><v>1299</v></c></row>' +
+  '</sheetData>';
+var scRows = L.parseSheetXml(selfClose, []);
+eq(scRows.length, 2, '自闭合单元格不吞掉同行后面的格子');
+eq(scRows[1][0], '2026-08-01', '日期仍在第 1 列');
+eq(scRows[1][1], '', '自闭合的空备注是空串');
+eq(scRows[1][2], '1299', '金额留在第 3 列（曾经错位到第 2 列）');
+
+var multi = L.parseSheetXml('<sheetData><row r="1">' +
+  '<c r="A1"><v>1</v></c><c r="B1" s="2"/><c r="C1" s="2"/><c r="D1"><v>4</v></c>' +
+  '</row></sheetData>', []);
+eq(multi[0].length, 4, '连续多个自闭合格子各自占位');
+eq(multi[0][3], '4', '末列的值没被前面的空格子吸走');
+
+// 注：<row r="2"/> 那种自闭合空行没有在这里加断言。它确实也会跟下一行并成
+// 一个匹配，但并了无害 —— 内层单元格正则会在合并后的内容里重新扫描，
+// 每个 <c> 自带 r="A3" 定位，空行本身不贡献单元格，输出完全一样。
+// 写成断言的话旧代码也是绿的，属于恒真断言，不如不写。
 
 // ── xlsx 里日期是序列号时，parseBill 仍能解析 ──
 var xlRows = [

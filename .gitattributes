@@ -1,0 +1,10 @@
+# 行尾统一：仓库内一律存 LF，检出时按各平台习惯转换。
+#
+# 这不是洁癖。CI 里有一步「重跑 npm run build 再比 git diff」来保证 docs/ 与 www/
+# 同步，而它依赖「同样的输入产出同样的字节」。没有这行的话，从 core.autocrlf=false
+# 的 Windows 机器提交会把 CRLF 写进索引，Linux CI 生成的 LF 就与之不符，
+# 一致性检查会天天误报，最后只能被关掉 —— 护栏就白装了。
+* text=auto
+
+# 图标是二进制，别让 text=auto 猜
+*.png binary
