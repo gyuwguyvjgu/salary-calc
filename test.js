@@ -1264,6 +1264,108 @@ eq(L.recurringToAdd([{ d: 99, t: 'e', c: 'home', a: 100, n: 'x' }], [])[0].d, 31
 eq(L.recurringToAdd([{ d: 0, t: 'e', c: 'home', a: 100, n: 'x' }], [])[0].d, 1, '日期夹到 1');
 eq(L.recurringToAdd([], []).length, 0, '空模板返回空');
 
+// ═══ 15. 主题层 ═══
+// 这一节测的不是 PURE-LOGIC，而是「同一个事实在 CSS 和 JS 里各写了一份」
+// 的地方 —— 那种重复必然会漂移。html 变量在文件开头已经读进来了。
+section('15. 主题层');
+
+// 取出某个 { } 块里定义的 CSS 变量。一行可能有多条声明，所以按声明扫而不是按行。
+function cssVarsOf(selector) {
+  var css = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+  var i = css.indexOf(selector);
+  if (i < 0) return null;
+  var j = css.indexOf('{', i), depth = 0, k = j;
+  for (; k < css.length; k++) {
+    if (css[k] === '{') depth++;
+    else if (css[k] === '}') { depth--; if (!depth) break; }
+  }
+  var block = css.slice(j + 1, k), out = {}, m;
+  var re = /(--[a-z0-9-]+)\s*:\s*([^;]+);/g;
+  while ((m = re.exec(block))) out[m[1]] = m[2].trim();
+  return out;
+}
+
+// 把页面里的 THEMES 表原样取出来求值（它在 PURE-LOGIC 之外，L 里拿不到）
+var themesSrc = html.match(/var THEMES = (\[[\s\S]*?\n\]);/);
+ok(!!themesSrc, 'index.html 里能找到 THEMES 表');
+var THEME_LIST = themesSrc ? new Function('return ' + themesSrc[1])() : [];
+eq(THEME_LIST.length, 6, '六套主题（含默认）');
+
+// ── 15a. 色卡颜色必须与 CSS token 一致 ──
+// 色卡是 JS 里手写的三个 hex，CSS 里是 --bg/--label/--blue。
+// 改了 CSS 忘了改这里，用户会看到一张对不上实际效果的色卡。
+THEME_LIST.forEach(function (t) {
+  var sel = t.key ? ':root[data-theme="' + t.key + '"] {' : ':root {';
+  var V = cssVarsOf(sel);
+  ok(!!V, '能找到 ' + (t.key || '默认') + ' 的 CSS 块');
+  if (!V) return;
+  eq(t.sw[0], V['--bg'], (t.key || '默认') + ' 色卡第一条 = --bg');
+  eq(t.sw[1], V['--label'], (t.key || '默认') + ' 色卡第二条 = --label');
+  eq(t.sw[2], V['--blue'], (t.key || '默认') + ' 色卡第三条 = --blue');
+});
+
+// ── 15b. 每套主题必须定义齐全部颜色/观感 token ──
+// 漏一个会静默回落到 :root 的 iOS 浅色值，在异色底上通常直接不可读
+// （比如深色主题漏了 --sp-tile，黑底上会出现一片浅灰格子）。
+var REQUIRED_TOKENS = [
+  '--bg', '--card', '--sep', '--sep-soft',
+  '--label', '--label-2', '--label-3', '--group-cap',
+  '--blue', '--blue-tint', '--red', '--green', '--orange',
+  '--field', '--field-focus', '--press',
+  '--tabbar', '--tabbar-line', '--build-bg', '--ic-a', '--ic-teal-fg', '--ic-green-fg',
+  '--tr-line', '--cal-rest', '--cal-other', '--cal-stat', '--cal-make',
+  '--sp-tile', '--sp-bar-bg',
+  '--warn-bg', '--warn-fg', '--crit-bg', '--crit-fg',
+  '--pop-shadow', '--focus-ring', '--on-accent',
+  '--hero-bg', '--hero-fg', '--hero-fg-2', '--hero-fg-3', '--hero-fg-4',
+  '--hero-line', '--hero-empty-bg', '--hero-empty-fg', '--hero-chev', '--sel-chev',
+];
+var rootV = cssVarsOf(':root {');
+REQUIRED_TOKENS.forEach(function (tk) {
+  ok(rootV && rootV[tk] !== undefined, ':root 定义了 ' + tk);
+});
+THEME_LIST.filter(function (t) { return t.key; }).forEach(function (t) {
+  var V = cssVarsOf(':root[data-theme="' + t.key + '"] {') || {};
+  var miss = REQUIRED_TOKENS.filter(function (tk) { return V[tk] === undefined; });
+  eq(miss.length, 0, t.key + ' 定义齐了全部 ' + REQUIRED_TOKENS.length +
+     ' 个颜色 token' + (miss.length ? '，缺 ' + miss.join(' ') : ''));
+});
+
+// ── 15c. 规则区不该再有裸色值 ──
+// 主题要能改颜色，前提是规则里全部走 var()。这里按标记定位变量定义区的范围，
+// 不写死行号（行号会随改动漂移）。
+var cssAll = html.slice(html.indexOf('<style>'), html.indexOf('</style>'));
+var rulesStart = cssAll.indexOf('* { margin: 0;');
+ok(rulesStart > 0, '能定位到规则区的起点');
+var rulesOnly = cssAll.slice(rulesStart);
+// 主题块本身就是变量定义，要排除掉
+var firstTheme = rulesOnly.indexOf(':root[data-theme=');
+if (firstTheme > 0) rulesOnly = rulesOnly.slice(0, firstTheme);
+// 已知且有意保留的例外：三个行首图标色（代码注释说明过「那几个色不动」）
+// 与两个日历图例描边。主题可以用 .row-icon / .lg-* 覆盖它们，不必 token 化。
+var ALLOWED_LITERALS = ['#5856d6', '#ff2d55', '#af52de', '#ffb3ae', '#9ec9f5'];
+var leaks = (rulesOnly.match(/#[0-9a-fA-F]{3,8}\b/g) || []).filter(function (h) {
+  return ALLOWED_LITERALS.indexOf(h.toLowerCase()) < 0;
+});
+eq(leaks.length, 0, '规则区没有新增的裸色值' + (leaks.length ? '，发现 ' + leaks.join(' ') : ''));
+
+// ── 15d. 首屏不闪的那段内联脚本必须在 <style> 之前 ──
+// 顺序反了主题就会在样式表解析后才生效，用户先看到一帧默认浅色。
+var iThemeScript = html.indexOf("localStorage.getItem('sc-theme')");
+var iStyle = html.indexOf('<style>');
+ok(iThemeScript > 0, '<head> 里有读取主题的内联脚本');
+ok(iThemeScript < iStyle, '内联主题脚本排在 <style> 之前（否则首屏会闪一帧默认主题）');
+// 它不能依赖后面才定义的函数
+var headScript = html.slice(0, iStyle);
+ok(headScript.indexOf('lsGet(') < 0, '内联脚本没有用 lsGet（那时它还没定义）');
+
+// ── 15e. 主题键不带 salary- 前缀 ──
+// 带了就会被 restoreBackup 连带清掉 —— 恢复别人的备份不该改掉你的主题。
+var themeKey = html.match(/var THEME_KEY = '([^']+)'/);
+ok(!!themeKey, '能找到 THEME_KEY');
+ok(themeKey && themeKey[1].indexOf('salary-') !== 0,
+   'THEME_KEY 不带 salary- 前缀（否则恢复备份会连带改掉主题）');
+
 // ── 汇总 ──
 console.log('\n' + '─'.repeat(46));
 if (fail === 0) {

@@ -485,8 +485,8 @@
     padding: 7px 13px; border: none; border-radius: 8px; cursor: pointer;
     font-family: inherit; font-size: 13px; font-weight: 600;
   }
-  .select-bar .ok { background: var(--blue); color: #fff; }
-  .select-bar .no { background: #fff; color: var(--label-2); }
+  .select-bar .ok { background: var(--blue); color: var(--on-accent); }
+  .select-bar .no { background: var(--card); color: var(--label-2); }
 
   .cal-cell .tag { margin-top: 3px; font-size: 9.5px; font-weight: 600; color: var(--label-2); }
   .cal-cell .tag.ot15 { color: var(--orange); }
@@ -584,7 +584,7 @@
     border: none; border-radius: 50%; background: var(--field);
     color: var(--label-3); font-size: 13px; line-height: 1; font-family: inherit;
   }
-  .fl-del:active { background: var(--red); color: #fff; }
+  .fl-del:active { background: var(--red); color: var(--on-accent); }
   .fl-day {
     padding: 6px 16px; font-size: 11.5px; font-weight: 600; color: var(--label-2);
     background: var(--field);
@@ -638,6 +638,32 @@
   .sp-cell.sel { background: var(--blue-tint); box-shadow: var(--focus-ring); }
   .sp-cell.sel .sp-day { color: var(--blue); font-weight: 700; }
 
+  /* ── 主题色卡 ──
+     纯文字下拉看不出主题长什么样，得选中了才知道。改成横向色卡：
+     三条色分别是「背景 / 文字 / 强调」—— 这正好是一套主题的三个要素。
+     不用 [背景/卡片/强调]，因为杂志主题的背景与卡片都是白的，两块会看不出区别。 */
+  .theme-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 12px 16px;
+  }
+  .theme-cell {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 7px; border: 1.5px solid var(--sep-soft); border-radius: var(--r-inner);
+    background: none; cursor: pointer; font-family: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .theme-cell.on { border-color: var(--blue); background: var(--blue-tint); }
+  .theme-sw {
+    display: flex; height: 28px; border-radius: 6px; overflow: hidden;
+    border: 1px solid var(--sep-soft);
+  }
+  .theme-sw i { flex: 1; }
+  .theme-sw i:last-child { flex: 0 0 32%; }
+  .theme-name {
+    font-size: 11.5px; color: var(--label-2); text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .theme-cell.on .theme-name { color: var(--blue); font-weight: 600; }
+
   /* 备份文本框：手机上下载常被拦掉，得能直接选中复制 */
   .bk-text {
     width: 100%; height: 132px; margin-top: 4px;
@@ -655,7 +681,8 @@
   .trend { display: flex; align-items: flex-end; gap: 3px; height: 128px; }
   .trend .tcol { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; height: 100%; }
   .trend .tbars { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 2px; }
-  .trend .tbar { width: 45%; border-radius: 3px 3px 0 0; min-height: 2px; }
+  /* 柱顶圆角走 token：方角主题（终端/杂志）下柱子也该是方的 */
+  .trend .tbar { width: 45%; border-radius: var(--r-bar) var(--r-bar) 0 0; min-height: 2px; }
   .trend .tbal { background: var(--green); }
   .trend .tbal.neg { background: var(--red); }
   .trend .texp { background: var(--orange); }
@@ -683,7 +710,7 @@
   .install-banner {
     position: fixed; top: 0; left: 0; right: 0; z-index: 9999;
     display: flex; align-items: center; gap: 10px;
-    padding: 10px 16px; font-size: 13px; color: #fff; background: var(--blue);
+    padding: 10px 16px; font-size: 13px; color: var(--on-accent); background: var(--blue);
   }
   .install-banner.hidden { display: none; }
   .install-banner .msg { flex: 1; min-width: 0; }
@@ -691,7 +718,7 @@
     flex-shrink: 0; cursor: pointer; padding: 6px 13px; border: none; border-radius: 8px;
     font-family: inherit; font-size: 12.5px; font-weight: 600;
   }
-  .install-banner .btn-install { background: #fff; color: var(--blue); }
+  .install-banner .btn-install { background: var(--on-accent); color: var(--blue); }
   .install-banner .btn-close   { background: rgba(255,255,255,.22); color: var(--on-accent); padding: 6px 10px; }
 
   /* ── Responsive ── */
@@ -1779,9 +1806,8 @@
     <!-- 外观主题 -->
     <div class="group">
       <div class="group-title">外观<span>只影响显示，不影响计算</span></div>
-      <div class="card list icons">
-        <div class="row"><span class="row-icon ic-purple">格</span><span class="row-label">界面风格</span>
-          <select class="row-select" id="themePick" onchange="onThemeChange()"></select></div>
+      <div class="card">
+        <div class="theme-grid" id="themeGrid"></div>
       </div>
       <div class="group-foot" id="themeFoot"></div>
     </div>
@@ -1835,7 +1861,7 @@
   <!-- 放在 tab 外面：两个页面都要能看到版本号，否则在日历页没法确认更新到没到 -->
   <div class="footer">
     仅供参考，实际以工资条为准
-    <span class="build" onclick="showBuild()" title="点一下看详情">cc4d7845</span>
+    <span class="build" onclick="showBuild()" title="点一下看详情">41a1c86d</span>
   </div>
 </div>
 
@@ -3021,12 +3047,20 @@ var THEME_KEY = 'sc-theme';
 // name 会显示在下拉里，desc 是选中后底部那行说明。
 // key 为 '' 表示不打 data-theme，也就是默认的 iOS 风格（含自动深浅）。
 var THEMES = [
-  { key: '',          name: 'iOS 原生（跟随系统深浅）', desc: '浅灰分组底 + 白色圆角卡片，跟随系统自动切换浅色/深色。' },
-  { key: 'paper',     name: '纸墨',  desc: '米白纸底、发丝线通栏、衬线数字。零阴影零圆角，像一份排得讲究的对账单。' },
-  { key: 'terminal',  name: '终端',  desc: '近黑底、全局等宽、方角网格、高信息密度。这套本身是深色，不跟随系统偏好。' },
-  { key: 'editorial', name: '杂志',  desc: '高对比黑白 + 单一朱红，超大金额，结果卡是一整块黑。' },
-  { key: 'kitty',     name: 'Hello Kitty', desc: '波点粉底、蝴蝶结、圆体字。汇总行重排成居中大数字，底部导航是悬浮胶囊岛，分类选格由四列改两列。' },
-  { key: 'soft',      name: '圆润',  desc: '大圆角、柔和阴影、带色调的浅色面，胶囊按钮，密度偏松。' },
+// sw 是色卡的三条色：[背景, 文字, 强调]，必须与 CSS 里对应主题块的
+// --bg / --label / --blue 一致 —— test.js 有断言把关，改了 CSS 忘了改这里会红。
+  { key: '', name: 'iOS 原生', sw: ['#f2f2f7', '#000000', '#007aff'],
+    desc: '浅灰分组底 + 白色圆角卡片，跟随系统自动切换浅色/深色。' },
+  { key: 'paper', name: '纸墨', sw: ['#f6f4ef', '#1f1c17', '#2f5d8a'],
+    desc: '米白纸底、发丝线通栏、衬线数字。零阴影零圆角，像一份排得讲究的对账单。输入框通栏。' },
+  { key: 'terminal', name: '终端', sw: ['#0b0e0c', '#d6f5dd', '#4ec9b0'],
+    desc: '近黑底、全局等宽、方角网格、高信息密度。输入框吃满整行但不换行 —— 高密度是它的前提。本身是深色，不跟随系统偏好。' },
+  { key: 'editorial', name: '杂志', sw: ['#ffffff', '#0a0a0a', '#d6452b'],
+    desc: '高对比黑白 + 单一朱红，超大金额，结果卡是一整块黑。' },
+  { key: 'soft', name: '圆润', sw: ['#eceefb', '#1a1c2e', '#5b5bd6'],
+    desc: '大圆角、柔和阴影、带色调的浅色面，胶囊按钮，密度偏松。' },
+  { key: 'kitty', name: 'Hello Kitty', sw: ['#fff5f8', '#4a2b36', '#d6336c'],
+    desc: '波点粉底、蝴蝶结、圆体字、悬浮胶囊导航。输入框通栏。' },
 ];
 
 function themeByKey(k) {
@@ -3050,20 +3084,23 @@ function applyTheme(key) {
   if (foot) foot.textContent = t.desc;
 }
 
-function onThemeChange() {
-  var k = selVal('themePick');
+function pickTheme(k) {
   lsSet(THEME_KEY, k);
   applyTheme(k);
+  buildThemeSelect();   // 重画一遍，把选中框挪到新的那张卡上
 }
 
 function buildThemeSelect() {
-  var sel = $('themePick');
-  if (!sel) return;
-  sel.innerHTML = THEMES.map(function (t) {
-    return '<option value="' + t.key + '">' + t.name + '</option>';
+  var box = $('themeGrid');
+  if (!box) return;
+  var cur = themeByKey(lsGet(THEME_KEY, '')).key;
+  box.innerHTML = THEMES.map(function (t) {
+    return '<button type="button" class="theme-cell' + (t.key === cur ? ' on' : '') +
+      '" onclick="pickTheme(\'' + t.key + '\')">' +
+      '<span class="theme-sw">' +
+        t.sw.map(function (c) { return '<i style="background:' + c + '"></i>'; }).join('') +
+      '</span><span class="theme-name">' + t.name + '</span></button>';
   }).join('');
-  var saved = lsGet(THEME_KEY, '');
-  sel.value = themeByKey(saved).key;
 }
 
 // 首次打开（该年度还没有存档）时的初始值，其余字段一律留空。
