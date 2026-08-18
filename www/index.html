@@ -10,6 +10,19 @@
 <meta name="apple-mobile-web-app-title" content="薪资计算">
 <link rel="apple-touch-icon" href="icon-512.png">
 <link rel="manifest" href="manifest.json">
+<script>
+// 主题必须在首次绘制前落到 <html> 上，否则会先闪一帧默认浅色。
+// 这段刻意不依赖后面定义的任何东西（lsGet、THEMES 此刻都还不存在），
+// 也刻意不写进 init()：init 在文件末尾，那时候页面已经画完了。
+// 键名不带 salary- 前缀是故意的：主题是本机的观感偏好，不该被
+// 「恢复别人的备份」连带改掉（restoreBackup 会清掉所有 salary- 键）。
+(function () {
+  try {
+    var t = localStorage.getItem('sc-theme');
+    if (t && /^[a-z]+$/.test(t)) document.documentElement.setAttribute('data-theme', t);
+  } catch (e) { /* 无痕模式读不到就用默认主题，不该因此白屏 */ }
+})();
+</script>
 <style>
   /* ═══════════════════════════════════════════════════════════
      薪资计算器 · iOS 设置页风格
@@ -55,6 +68,64 @@
     --warn-bg: #fff4e0;  --warn-fg: #8a5a00;
     --crit-bg: #ffeceb;  --crit-fg: #b3271e;
 
+
+    /* ══ 以下是主题层 token ══
+       颜色之外，主题还要能改形状、密度、字体与 hero 观感，所以这些也得是变量。
+       默认值就是 iOS 风格原本的字面量，抽取这一步不改变任何视觉。
+       颜色类 token 每套主题必须全部定义（漏一个会静默回落，在异色底上通常不可读，
+       test.js 里有断言把关）；形状密度类可以只覆盖需要改的。 ══ */
+
+    /* 形状 */
+    --r-card:   12px;   /* 卡片圆角 */
+    --r-tile:    9px;   /* 日历格 / 输入框 */
+    --r-inner:   8px;   /* 图标块 / 分段控件 / 小按钮 */
+    --r-bar:     3px;   /* 进度条（.bar / .bud-bar / .ratio-bar）*/
+    --r-mini:    2px;   /* 支出日历的量条，比进度条更细，不能并进 --r-bar */
+    --card-shadow: none;
+    --card-border: none;   /* 必须是 none 而不是 0 solid transparent：
+                              后者会把 computed border-style 从 none 变成 solid */
+    --pop-shadow:  0 1px 3px rgba(0,0,0,.12);   /* 浮起的小控件（分段选中态）*/
+    --focus-ring:  inset 0 0 0 1.5px var(--blue);
+
+    /* 密度 */
+    --pad-x:      16px;  /* 通栏左右内边距，分隔线内缩也跟它对齐 */
+    --row-h:      42px;
+    --row-pad-y:   9px;
+    --group-gap:  22px;
+    --app-pad-t:  22px;
+    --app-pad-b:  84px;  /* 给底部导航让出的高度。主题改了导航形态要同步改这里 */
+
+    /* 分隔线 */
+    --sep-inset: 16px;   /* 左侧内缩 —— iOS 分组列表的标志性细节，别的风格未必要 */
+    --sep-h:      1px;
+
+    /* 图标块与字体 */
+    --icon-size: 28px;
+    --font-num: var(--font);   /* 金额与数字：衬线/等宽主题会换掉它 */
+    --title-tr: none;          /* 分组标题 text-transform */
+    --title-ls: normal;        /* 分组标题 letter-spacing。默认必须是 normal 而不是 0：
+                                  0 会关掉字体自带的间距微调，与原样式不等价 */
+    --title-w:  400;
+    --on-accent: #ffffff;      /* 强调色底上的前景（蓝底白字那类）*/
+
+    /* hero 结果卡：全页唯一大色块，主题差异最明显的地方 */
+    --hero-bg: linear-gradient(135deg, #0a84ff, #5e5ce6);
+    --hero-fg:   #ffffff;
+    --hero-fg-2: rgba(255,255,255,.78);   /* hero-label */
+    --hero-fg-3: rgba(255,255,255,.72);   /* hero-sub */
+    --hero-fg-4: rgba(255,255,255,.62);   /* hero 里的 row-desc */
+    --hero-line: rgba(255,255,255,.24);
+    --hero-empty-bg: rgba(0,0,0,.14);
+    --hero-empty-fg: rgba(255,255,255,.92);
+    --hero-size: 34px;
+    --hero-w:    700;
+    --hero-ls:   -1px;
+    --hero-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%23ffffff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+
+    --sel-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%23007aff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");   /* .row-select 的下拉箭头 */
+
+    /* tab bar */
+    --tabbar-blur: saturate(180%) blur(20px);
     --font: -apple-system, BlinkMacSystemFont, "SF Pro SC", "PingFang SC",
             "HarmonyOS Sans SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
   }
@@ -103,6 +174,11 @@
          量条槽反过来要压暗，否则一片灰痕比橙条还抢眼 */
       --sp-tile:   #26262a;
       --sp-bar-bg: #303034;
+      /* 主题层 token 里只有这几个在深色下需要换：其余（形状、密度、字体）与配色无关 */
+      --pop-shadow: 0 1px 3px rgba(0,0,0,.5);   /* 纯黑底上浅阴影看不见，加深 */
+      --hero-bg: linear-gradient(135deg, #0a63c4, #453fb0);   /* 深色下把渐变压暗，避免刺眼 */
+      --hero-empty-bg: rgba(0,0,0,.26);
+      --sel-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%230a84ff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
       --warn-bg: #2a2010;  --warn-fg: #ffca55;
       --crit-bg: #2b1416;  --crit-fg: #ff8d84;
     }
@@ -124,7 +200,7 @@
 
   .app {
     max-width: 680px; margin: 0 auto;
-    padding: 22px 16px calc(84px + env(safe-area-inset-bottom));
+    padding: var(--app-pad-t) var(--pad-x) calc(var(--app-pad-b) + env(safe-area-inset-bottom));
   }
 
   /* ── 底部 Tab Bar ──
@@ -134,8 +210,8 @@
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
     display: flex;
     background: var(--tabbar);
-    -webkit-backdrop-filter: saturate(180%) blur(20px);
-    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: var(--tabbar-blur);
+    backdrop-filter: var(--tabbar-blur);
     border-top: .5px solid var(--tabbar-line);
     padding: 5px 8px;
     padding-bottom: max(5px, env(safe-area-inset-bottom));
@@ -153,27 +229,31 @@
   .tab-panel.active { display: block; }
 
   /* ── 分组 ── */
-  .group { margin-bottom: 22px; }
+  .group { margin-bottom: var(--group-gap); }
   .group-title {
     display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
-    padding: 0 16px 7px; font-size: 12.5px; font-weight: 400; color: var(--group-cap);
+    padding: 0 var(--pad-x) 7px; font-size: 12.5px; color: var(--group-cap);
+    font-weight: var(--title-w); text-transform: var(--title-tr); letter-spacing: var(--title-ls);
   }
   .group-title span { color: var(--label-3); }
   .group-foot {
-    padding: 7px 16px 0; font-size: 12px; line-height: 1.55; color: var(--label-2);
+    padding: 7px var(--pad-x) 0; font-size: 12px; line-height: 1.55; color: var(--label-2);
   }
-  .card { background: var(--card); border-radius: 12px; overflow: hidden; }
+  .card {
+    background: var(--card); border-radius: var(--r-card); overflow: hidden;
+    box-shadow: var(--card-shadow); border: var(--card-border);
+  }
   .card.plain { padding: 14px 16px; }
 
   /* ── 列表行 ── */
   .row {
     position: relative; display: flex; align-items: center; gap: 12px;
-    min-height: 42px; padding: 9px 16px;
+    min-height: var(--row-h); padding: var(--row-pad-y) var(--pad-x);
   }
   /* 分隔线左侧内缩 —— iOS 分组列表的标志性细节 */
   .row::before {
-    content: ''; position: absolute; top: 0; left: 16px; right: 0;
-    height: 1px; background: var(--sep-soft);
+    content: ''; position: absolute; top: 0; left: var(--sep-inset); right: 0;
+    height: var(--sep-h); background: var(--sep-soft);
   }
   .list > .row:first-child::before { display: none; }
 
@@ -184,7 +264,7 @@
   .row-label .sub { margin-left: 5px; font-size: 11.5px; color: var(--label-3); }
   .row-value {
     margin-left: auto; text-align: right; font-size: 15px; color: var(--label-2);
-    font-variant-numeric: tabular-nums;
+    font-family: var(--font-num); font-variant-numeric: tabular-nums;
   }
   .row-value.dark { color: var(--label); }
   .row-value.neg  { color: var(--red); }
@@ -199,7 +279,7 @@
      同一个概念固定同一个字和同一个色（底薪永远是蓝「薪」），
      重复出现形成秩序感，不会因为颜色多而显得杂。 */
   .row-icon {
-    width: 28px; height: 28px; flex-shrink: 0; border-radius: 8px;
+    width: var(--icon-size); height: var(--icon-size); flex-shrink: 0; border-radius: var(--r-inner);
     display: flex; align-items: center; justify-content: center;
     font-size: 13px; font-weight: 600; line-height: 1;
   }
@@ -227,9 +307,12 @@
 
   /* 行内输入：给底色 + 内缩，让它明显区别于同样右对齐的只读数值行。
      纯无边框虽然更"干净"，但和展示行长得一样，用户看不出可以点。 */
+  /* 靠右的输入框（备注、名称这类）原先写成行内 style="text-align:right"，
+     行内样式压过一切，主题改不动。收成类，默认表现不变。 */
+  .ta-r { text-align: right; }
   .row-input {
     flex: 1; min-width: 0; max-width: 168px; margin-left: auto;
-    padding: 7px 11px; border: 1px solid var(--sep-soft); border-radius: 9px;
+    padding: 7px 11px; border: 1px solid var(--sep-soft); border-radius: var(--r-tile);
     background: var(--field); outline: none;
     text-align: right; font-family: inherit; font-size: 15px; color: var(--label);
     font-variant-numeric: tabular-nums;
@@ -255,7 +338,7 @@
     text-align: right; text-align-last: right;
     -webkit-appearance: none; appearance: none;
     padding-right: 15px;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%23007aff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-image: var(--sel-chev);
     background-repeat: no-repeat; background-position: right 0 center;
   }
 
@@ -274,42 +357,43 @@
 
   /* ── 结果卡：整张彩色，全页唯一的大色块，也是视线第一落点 ── */
   .hero {
-    padding: 16px 16px 0;
-    background: linear-gradient(135deg, #0a84ff, #5e5ce6);
+    padding: 16px var(--pad-x) 0;
+    background: var(--hero-bg);
   }
   .hero-head { display: flex; align-items: center; gap: 10px; margin-bottom: 2px; }
-  .hero-label { font-size: 13px; color: rgba(255,255,255,.78); }
-  .hero .row::before { background: rgba(255,255,255,.24); }
-  .hero .row-label { color: #fff; }
-  .hero .row-desc { color: rgba(255,255,255,.62); }
-  .hero .row-value, .hero .row-value.dark { color: #fff; }
+  .hero-label { font-size: 13px; color: var(--hero-fg-2); }
+  .hero .row::before { background: var(--hero-line); }
+  .hero .row-label { color: var(--hero-fg); }
+  .hero .row-desc { color: var(--hero-fg-4); }
+  .hero .row-value, .hero .row-value.dark { color: var(--hero-fg); }
   .hero-pick { margin-left: auto; display: flex; align-items: center; gap: 2px; }
   .hero-pick select {
     border: none; outline: none; cursor: pointer; padding: 2px 15px 2px 6px;
-    background-color: transparent; font-family: inherit; font-size: 13px; color: #fff;
+    background-color: transparent; font-family: inherit; font-size: 13px; color: var(--hero-fg);
     -webkit-appearance: none; appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%23ffffff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-image: var(--hero-chev);
     background-repeat: no-repeat; background-position: right 2px center;
   }
   /* 下拉展开后的选项列表是系统渲染的白底，字得跟着变深 */
   .hero-pick select option { color: var(--label); }
   .hero-value {
-    font-size: 34px; font-weight: 700; letter-spacing: -1px; line-height: 1.15; color: #fff;
+    font-size: var(--hero-size); font-weight: var(--hero-w); letter-spacing: var(--hero-ls);
+    line-height: 1.15; color: var(--hero-fg); font-family: var(--font-num);
   }
-  .hero-sub { margin: 3px 0 14px; font-size: 12.5px; color: rgba(255,255,255,.72); }
+  .hero-sub { margin: 3px 0 14px; font-size: 12.5px; color: var(--hero-fg-3); }
   /* 空状态提示：压在渐变卡内，与卡片同色系，不额外占一块视觉 */
   .hero-empty {
-    margin: 0 -16px; padding: 11px 16px;
-    background: rgba(0,0,0,.14);
-    font-size: 12.5px; line-height: 1.5; color: rgba(255,255,255,.92);
+    margin: 0 calc(-1 * var(--pad-x)); padding: 11px var(--pad-x);
+    background: var(--hero-empty-bg);
+    font-size: 12.5px; line-height: 1.5; color: var(--hero-empty-fg);
   }
   .hero-empty.hidden { display: none; }
   .hero .row { margin: 0 -16px; padding-bottom: 13px; }
 
   /* 占比条 */
   .row-value.ratio { display: flex; align-items: center; gap: 9px; }
-  .ratio-bar { width: 118px; height: 6px; border-radius: 3px; background: var(--sep-soft); overflow: hidden; }
-  .ratio-bar .fill { display: block; height: 100%; border-radius: 3px; background: var(--red); transition: width .3s ease; }
+  .ratio-bar { width: 118px; height: 6px; border-radius: var(--r-bar); background: var(--sep-soft); overflow: hidden; }
+  .ratio-bar .fill { display: block; height: 100%; border-radius: var(--r-bar); background: var(--red); transition: width .3s ease; }
   #deductRatio { font-size: 15px; font-weight: 600; color: var(--label); }
 
   .si-company { color: var(--label-3); }
@@ -328,7 +412,7 @@
   .btn-apply {
     display: block; width: 100%; margin-top: 18px; padding: 13px; cursor: pointer;
     border: none; border-radius: 12px; background: var(--blue);
-    font-family: inherit; font-size: 16px; font-weight: 600; color: #fff;
+    font-family: inherit; font-size: 16px; font-weight: 600; color: var(--on-accent);
     transition: opacity .15s;
   }
   .btn-apply:active { opacity: .75; }
@@ -380,7 +464,7 @@
     text-align: center; font-family: inherit; font-size: 13px; font-weight: 500; color: var(--label);
     font-variant-numeric: tabular-nums;
   }
-  .cal-cell input:focus { background: var(--blue-tint); box-shadow: inset 0 0 0 1.5px var(--blue); }
+  .cal-cell input:focus { background: var(--blue-tint); box-shadow: var(--focus-ring); }
   /* 批量选择模式：选中态要盖住 .rest/.statutory 的底色，所以用 !important */
   .cal-cell.selectable { cursor: pointer; }
   .cal-cell.selected {
@@ -393,7 +477,7 @@
   }
   .select-bar .cnt { margin-right: auto; font-size: 13px; font-weight: 600; color: var(--blue); }
   .select-bar input {
-    width: 56px; padding: 6px 8px; border: none; border-radius: 8px; background: #fff;
+    width: 56px; padding: 6px 8px; border: none; border-radius: var(--r-inner); background: var(--card);
     text-align: center; font-family: inherit; font-size: 14px; color: var(--label);
     outline: none; font-variant-numeric: tabular-nums;
   }
@@ -458,7 +542,7 @@
     background: var(--field); outline: none; text-align: right;
     font-family: inherit; font-size: 12.5px; color: var(--label); font-variant-numeric: tabular-nums;
   }
-  .month-table input:focus { background: var(--blue-tint); box-shadow: inset 0 0 0 1.5px var(--blue); }
+  .month-table input:focus { background: var(--blue-tint); box-shadow: var(--focus-ring); }
 
   /* ── 说明 ── */
   .note { margin-top: 4px; }
@@ -477,7 +561,7 @@
     color: var(--label-2); white-space: nowrap;
   }
   .seg button.on { background: var(--card); color: var(--label); font-weight: 600;
-                   box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+                   box-shadow: var(--pop-shadow); }
 
   /* 分类选格：一行四个，够容纳 8 个支出分类而不用滚动 */
   .cat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px 16px; }
@@ -508,8 +592,8 @@
   .fl-empty { padding: 26px 16px; text-align: center; font-size: 13px; color: var(--label-3); }
 
   /* 分类占比条 */
-  .bar { flex: 1; height: 6px; border-radius: 3px; background: var(--sep-soft); overflow: hidden; }
-  .bar > span { display: block; height: 100%; border-radius: 3px; background: var(--blue); }
+  .bar { flex: 1; height: 6px; border-radius: var(--r-bar); background: var(--sep-soft); overflow: hidden; }
+  .bar > span { display: block; height: 100%; border-radius: var(--r-bar); background: var(--blue); }
 
   /* ── 支出日历（浅底格子 + 底部量条）──
      不用橙色浓淡填满格子：橙底压橙字对比度不够（¥3,200 那种深档几乎读不出来），
@@ -522,7 +606,7 @@
   }
   .sp-cell {
     position: relative; min-height: 54px; padding: 15px 3px 12px;
-    border-radius: 9px; background: var(--sp-tile);
+    border-radius: var(--r-tile); background: var(--sp-tile);
     display: flex; flex-direction: column;
     align-items: center; justify-content: center; gap: 0;
     cursor: pointer; -webkit-tap-highlight-color: transparent;
@@ -537,7 +621,7 @@
     font-variant-numeric: tabular-nums; line-height: 1;
   }
   .sp-amt {
-    font-size: 13px; font-weight: 700; color: var(--label);
+    font-size: 13px; font-weight: 700; color: var(--label); font-family: var(--font-num);
     font-variant-numeric: tabular-nums; letter-spacing: -.3px; line-height: 1.15;
     white-space: nowrap;
   }
@@ -548,16 +632,16 @@
   /* 量条贴格子底部，所有格子同一起点、同一长度基准，横向才好比 */
   .sp-bar {
     position: absolute; left: 7px; right: 7px; bottom: 5px; height: 3px;
-    border-radius: 2px; background: var(--sp-bar-bg); overflow: hidden;
+    border-radius: var(--r-mini); background: var(--sp-bar-bg); overflow: hidden;
   }
-  .sp-bar > i { display: block; height: 100%; border-radius: 2px; background: var(--orange); }
-  .sp-cell.sel { background: var(--blue-tint); box-shadow: inset 0 0 0 1.5px var(--blue); }
+  .sp-bar > i { display: block; height: 100%; border-radius: var(--r-mini); background: var(--orange); }
+  .sp-cell.sel { background: var(--blue-tint); box-shadow: var(--focus-ring); }
   .sp-cell.sel .sp-day { color: var(--blue); font-weight: 700; }
 
   /* 备份文本框：手机上下载常被拦掉，得能直接选中复制 */
   .bk-text {
     width: 100%; height: 132px; margin-top: 4px;
-    padding: 10px 12px; border: 1px solid var(--sep-soft); border-radius: 9px;
+    padding: 10px 12px; border: 1px solid var(--sep-soft); border-radius: var(--r-tile);
     background: var(--field); color: var(--label);
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     font-size: 11px; line-height: 1.5; resize: vertical; outline: none;
@@ -579,8 +663,8 @@
   .trend .tcol.cur .tm { color: var(--blue); font-weight: 700; }
 
   /* 预算进度条：超支变红 */
-  .bud-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--sep-soft); overflow: hidden; }
-  .bud-bar > span { display: block; height: 100%; border-radius: 3px; background: var(--green); }
+  .bud-bar { flex: 1; height: 6px; border-radius: var(--r-bar); background: var(--sep-soft); overflow: hidden; }
+  .bud-bar > span { display: block; height: 100%; border-radius: var(--r-bar); background: var(--green); }
   .bud-bar > span.warn { background: var(--orange); }
   .bud-bar > span.over { background: var(--red); }
   .bud-over { color: var(--red); font-weight: 600; }
@@ -608,7 +692,7 @@
     font-family: inherit; font-size: 12.5px; font-weight: 600;
   }
   .install-banner .btn-install { background: #fff; color: var(--blue); }
-  .install-banner .btn-close   { background: rgba(255,255,255,.22); color: #fff; padding: 6px 10px; }
+  .install-banner .btn-close   { background: rgba(255,255,255,.22); color: var(--on-accent); padding: 6px 10px; }
 
   /* ── Responsive ── */
   @media (max-width: 400px) {
@@ -635,6 +719,492 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
+
+  /* ═══════════════════════════════════════════════════════════
+     主题层
+
+     无 data-theme 时是默认的 iOS 风格（含它自己的浅/深色自动切换）。
+     显式选了主题后，:root[data-theme="x"] 的特异性 (0,2,0) 高于 :root (0,1,0)，
+     也高于深色媒体查询里的 :root —— 媒体查询不提升特异性 —— 所以用户的选择
+     永远压得住系统偏好。这些块必须留在样式表最末尾。
+
+     每套主题都必须定义全部 45 个颜色/观感 token：漏一个会静默回落到 iOS 浅色值，
+     在异色底上通常是不可读的（比如深色主题漏了 --sp-tile，黑底上会出现浅灰格子）。
+     test.js 里有断言把关。形状/密度类 token 可以只覆盖需要改的。
+     ═══════════════════════════════════════════════════════════ */
+
+  /* ── 纸墨 ── */
+  :root[data-theme="paper"] {
+    color-scheme: light;   /* 让原生下拉、滚动条跟着主题走 */
+    --bg: #f6f4ef; --card: #fffdf8;
+    --sep: #d8d2c4; --sep-soft: #e8e3d7;
+    --label: #1f1c17; --label-2: #6b6558; --label-3: #a29b8b; --group-cap: #6e6657;
+    /* 强调色用墨蓝而不是系统蓝：印刷品上高饱和的荧光蓝很跳 */
+    --blue: #2f5d8a; --blue-tint: #e6edf4;
+    --red: #9e2b25; --green: #3f6b3a; --orange: #a8621a;
+    --field: #f1ede2; --field-focus: #fffdf8; --press: #ebe6d9;
+    --tabbar: rgba(255,253,248,.97); --tabbar-line: rgba(31,28,23,.16);
+    --build-bg: rgba(31,28,23,.06); --ic-a: .10;
+    --ic-teal-fg: #2f6f7a; --ic-green-fg: #3f6b3a;
+    --tr-line: #ece7db;
+    --cal-rest: #f2eee3; --cal-other: #f2eee3;
+    --cal-stat: #f6e8e4; --cal-make: #e9eff5;
+    --sp-tile: #f2eee3; --sp-bar-bg: #e3ddcd;
+    --warn-bg: #f7edd8; --warn-fg: #7a5a12;
+    --crit-bg: #f6e2df; --crit-fg: #8f2a22;
+    --pop-shadow: none; --focus-ring: inset 0 0 0 1.5px #2f5d8a;
+    --on-accent: #fffdf8;
+    /* hero 不再是彩色渐变块，改成纸上的一块留白 + 深色大字 */
+    --hero-bg: #fffdf8;
+    --hero-fg: #1f1c17; --hero-fg-2: #6b6558; --hero-fg-3: #7a7466; --hero-fg-4: #7a7263;
+    --hero-line: #e8e3d7;
+    --hero-empty-bg: #f1ede2; --hero-empty-fg: #4a4438;
+    --hero-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%236b6558' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --sel-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%232f5d8a' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --title-w: 500; --hero-w: 400;
+    /* 形状与密度：硬边、通栏发丝线、行高加大 */
+    --r-card: 0; --r-tile: 2px; --r-inner: 2px; --r-bar: 0; --r-mini: 0;
+    --card-shadow: none; --card-border: 1px solid #e8e3d7;
+    --pad-x: 18px; --row-h: 48px; --row-pad-y: 12px; --group-gap: 30px; --app-pad-t: 26px;
+    --sep-inset: 0; --sep-h: 1px;
+    --icon-size: 22px;
+    --font-num: Georgia, "Times New Roman", "Songti SC", STSong, serif;
+    --title-tr: none; --title-ls: .10em;
+    --hero-size: 40px; --hero-ls: -.5px;
+    --tabbar-blur: none;
+  }
+  /* 图标块去掉色底，只留发丝方框 —— 纸上不该有一排彩色色块 */
+  :root[data-theme="paper"] .row-icon {
+    background: none; border: 1px solid var(--sep-soft); color: var(--label-2);
+    font-size: 11px; font-weight: 500;
+  }
+  :root[data-theme="paper"] .row-icon svg { width: 14px; height: 14px; }
+  /* 分组标题：左侧一道墨线 + 拉开字距的小字 */
+  :root[data-theme="paper"] .group-title {
+    border-left: 2px solid var(--label); padding-left: 10px;
+    margin: 0 var(--pad-x) 9px; font-size: 11.5px;
+  }
+  :root[data-theme="paper"] .group-foot { font-size: 11.5px; font-style: italic; }
+  /* hero：纸上的留白块，靠上下墨线界定，而不是靠色块 */
+  :root[data-theme="paper"] .hero {
+    border-top: 2px solid var(--label); border-bottom: 1px solid var(--sep);
+  }
+  :root[data-theme="paper"] .hero-value { font-variant-numeric: oldstyle-nums tabular-nums; }
+  :root[data-theme="paper"] .tab-bar { background: var(--card); border-top: 1px solid var(--sep); }
+  :root[data-theme="paper"] .tab-btn { font-size: 10px; letter-spacing: .06em; }
+  /* 日历格：透明底 + 发丝框，不要填色 */
+  :root[data-theme="paper"] .sp-cell { background: none; border: 1px solid var(--sep-soft); }
+  :root[data-theme="paper"] .sp-cell.blank { border-color: transparent; }
+  :root[data-theme="paper"] .row-action { border-radius: 0; letter-spacing: .06em; }
+
+  /* ── 终端 ── */
+  :root[data-theme="terminal"] {
+    color-scheme: dark;   /* 让原生下拉、滚动条跟着主题走 */
+    --bg: #0b0e0c; --card: #121614;
+    --sep: #2a322c; --sep-soft: #1e251f;
+    --label: #d6f5dd; --label-2: #7fae8c; --label-3: #52705a; --group-cap: #6f9a7c;
+    /* 交互色用青绿，正/负仍用绿/红，橙留给加班与量条 */
+    --blue: #4ec9b0; --blue-tint: #10241f;
+    --red: #f85149; --green: #3fb950; --orange: #d29922;
+    --field: #0e1210; --field-focus: #161b18; --press: #1a211c;
+    --tabbar: rgba(11,14,12,.98); --tabbar-line: #2a322c;
+    --build-bg: rgba(214,245,221,.08); --ic-a: .18;
+    --ic-teal-fg: #4ec9b0; --ic-green-fg: #3fb950;
+    --tr-line: #1e251f;
+    --cal-rest: #0e1210; --cal-other: #090b0a;
+    --cal-stat: #2a1512; --cal-make: #0d1c24;
+    --sp-tile: #121614; --sp-bar-bg: #1f2722;
+    --warn-bg: #241d0c; --warn-fg: #d29922;
+    --crit-bg: #2a1512; --crit-fg: #f85149;
+    --pop-shadow: none; --focus-ring: inset 0 0 0 1px #4ec9b0;
+    /* 亮色强调底上要深字 */
+    --on-accent: #0b0e0c;
+    --hero-bg: #0e1210;
+    --hero-fg: #d6f5dd; --hero-fg-2: #7fae8c; --hero-fg-3: #7fae8c; --hero-fg-4: #6a8d74;
+    --hero-line: #2a322c;
+    --hero-empty-bg: #090b0a; --hero-empty-fg: #7fae8c;
+    --hero-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%237fae8c' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --sel-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%237fae8c' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --title-w: 500; --hero-w: 700;
+    /* 全局换等宽：直接覆盖 --font，body 与所有 inherit 的控件一起生效 */
+    --font: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --font-num: var(--font);
+    /* 方角 + 高密度 */
+    --r-card: 0; --r-tile: 0; --r-inner: 0; --r-bar: 0; --r-mini: 0;
+    --card-shadow: none; --card-border: 1px solid #2a322c;
+    --pad-x: 10px; --row-h: 34px; --row-pad-y: 5px; --group-gap: 14px; --app-pad-t: 12px;
+    --sep-inset: 0; --sep-h: 1px;
+    --icon-size: 22px;
+    --title-tr: uppercase; --title-ls: .14em;
+    --hero-size: 30px; --hero-ls: 0;
+    --tabbar-blur: none;
+  }
+  /* 图标块变成 [薪] 这样的方括号文字 */
+  :root[data-theme="terminal"] .row-icon {
+    background: none; border: 1px solid var(--sep); color: var(--label-2);
+    font-size: 11px; font-weight: 400;
+  }
+  :root[data-theme="terminal"] .row-icon svg { width: 13px; height: 13px; }
+  /* 分组标题前面加个提示符 */
+  /* .group-title 是 flex + space-between（左边标题、右边提示），
+     ::before 会变成第一个 flex item 把标题挤到右边去。
+     所以提示符必须绝对定位、脱离 flex 流。 */
+  :root[data-theme="terminal"] .group-title {
+    font-size: 11px; position: relative; padding-left: calc(var(--pad-x) + 12px);
+  }
+  :root[data-theme="terminal"] .group-title::before {
+    content: "$"; position: absolute; left: var(--pad-x); color: var(--blue);
+  }
+  :root[data-theme="terminal"] .group-foot { font-size: 11px; }
+  :root[data-theme="terminal"] .group-foot::before { content: "# "; color: var(--label-3); }
+  /* 卡片是带边框的面板，标签用 KEY: 形式 */
+  :root[data-theme="terminal"] .row-label::after { content: ":"; color: var(--label-3); }
+  :root[data-theme="terminal"] .row-label { font-size: 13px; }
+  :root[data-theme="terminal"] .row-value { font-size: 13px; }
+  :root[data-theme="terminal"] .hero {
+    border: 1px solid var(--sep); border-left: 2px solid var(--blue);
+  }
+  :root[data-theme="terminal"] .hero-label::before { content: "> "; }
+  :root[data-theme="terminal"] .tab-bar { background: var(--bg); padding: 2px 4px; }
+  :root[data-theme="terminal"] .tab-btn { font-size: 9.5px; letter-spacing: .04em; gap: 0; }
+  :root[data-theme="terminal"] .tab-btn svg { width: 19px; height: 19px; }
+  /* 日历与支出格：1px 网格，方角 */
+  :root[data-theme="terminal"] .sp-grid { gap: 1px; background: var(--sep-soft); padding: 1px; }
+  :root[data-theme="terminal"] .sp-cell { border-radius: 0; }
+  :root[data-theme="terminal"] .sp-cell.blank { background: var(--cal-other); }
+  :root[data-theme="terminal"] .card { border-radius: 0; }
+
+  /* ── 杂志 ── */
+  :root[data-theme="editorial"] {
+    color-scheme: light;   /* 让原生下拉、滚动条跟着主题走 */
+    --bg: #ffffff; --card: #ffffff;
+    --sep: #111111; --sep-soft: #dcdcdc;
+    --label: #0a0a0a; --label-2: #55555c; --label-3: #8e8e96; --group-cap: #0a0a0a;
+    /* 全页只有一个强调色，用朱红而不是蓝，避免和 iOS 撞 */
+    --blue: #d6452b; --blue-tint: #fdeceA;
+    --red: #c1121f; --green: #1b6b3a; --orange: #b8620f;
+    --field: #f4f4f4; --field-focus: #ffffff; --press: #ebebeb;
+    --tabbar: rgba(255,255,255,.98); --tabbar-line: #111111;
+    --build-bg: rgba(10,10,10,.06); --ic-a: .12;
+    --ic-teal-fg: #176b78; --ic-green-fg: #1b6b3a;
+    --tr-line: #e6e6e6;
+    --cal-rest: #f7f7f7; --cal-other: #fbfbfb;
+    --cal-stat: #fdecea; --cal-make: #eef3fb;
+    --sp-tile: #f4f4f4; --sp-bar-bg: #e2e2e2;
+    --warn-bg: #fdf3e0; --warn-fg: #8a5a00;
+    --crit-bg: #fdecea; --crit-fg: #a01b12;
+    --pop-shadow: none; --focus-ring: inset 0 0 0 2px #d6452b;
+    --on-accent: #ffffff;
+    /* hero 从渐变卡改成一整块黑，是全页唯一的重色 */
+    --hero-bg: #0a0a0a;
+    --hero-fg: #ffffff;
+    --hero-fg-2: rgba(255,255,255,.74); --hero-fg-3: rgba(255,255,255,.68);
+    --hero-fg-4: rgba(255,255,255,.56);
+    --hero-line: rgba(255,255,255,.22);
+    --hero-empty-bg: rgba(255,255,255,.10); --hero-empty-fg: rgba(255,255,255,.88);
+    --hero-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%23ffffff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --sel-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%23d6452b' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --title-w: 700; --hero-w: 800;
+    --r-card: 0; --r-tile: 0; --r-inner: 0; --r-bar: 0; --r-mini: 0;
+    --card-shadow: none; --card-border: none;
+    --pad-x: 16px; --row-h: 50px; --row-pad-y: 13px; --group-gap: 34px; --app-pad-t: 28px;
+    --sep-inset: 0; --sep-h: 1px;
+    --icon-size: 20px;
+    --font-num: var(--font);
+    --title-tr: uppercase; --title-ls: .18em;
+    --hero-size: 46px; --hero-ls: -1.5px;
+    --tabbar-blur: none;
+  }
+  /* 图标退成小号无底文字，让排版而不是色块承担层级 */
+  :root[data-theme="editorial"] .row-icon {
+    background: none; color: var(--label-3); font-size: 10.5px; font-weight: 700;
+  }
+  :root[data-theme="editorial"] .row-icon svg { width: 14px; height: 14px; }
+  /* 分组标题：粗黑线 + 全大写小标题，杂志栏目头的做法 */
+  :root[data-theme="editorial"] .group-title {
+    border-top: 3px solid var(--label); padding-top: 8px; margin: 0 var(--pad-x) 4px;
+    font-size: 10.5px;
+  }
+  :root[data-theme="editorial"] .card { border-bottom: 1px solid var(--sep-soft); }
+  :root[data-theme="editorial"] .group-foot { font-size: 11.5px; max-width: 46em; }
+  /* 数值是视觉主角，行内也放大 */
+  :root[data-theme="editorial"] .row-value { font-size: 17px; font-weight: 600; }
+  :root[data-theme="editorial"] .row.strong .row-value { font-size: 20px; font-weight: 800; }
+  :root[data-theme="editorial"] .hero { border: none; }
+  :root[data-theme="editorial"] .hero-label {
+    text-transform: uppercase; letter-spacing: .18em; font-size: 10.5px;
+  }
+  :root[data-theme="editorial"] .tab-bar { background: var(--card); border-top: 2px solid var(--label); }
+  :root[data-theme="editorial"] .tab-btn { font-size: 9.5px; text-transform: uppercase; letter-spacing: .1em; }
+  :root[data-theme="editorial"] .sp-cell { background: none; border-bottom: 2px solid var(--sep-soft); }
+  :root[data-theme="editorial"] .sp-cell.sel { border-bottom-color: var(--blue); }
+  :root[data-theme="editorial"] .row-action { text-transform: uppercase; letter-spacing: .12em; }
+
+  /* ── 圆润 ── */
+  :root[data-theme="soft"] {
+    color-scheme: light;   /* 让原生下拉、滚动条跟着主题走 */
+    --bg: #eceefb; --card: #ffffff;
+    --sep: #d5d9ee; --sep-soft: #e8ebf9;
+    --label: #1a1c2e; --label-2: #676c8c; --label-3: #a2a6c0; --group-cap: #5a5f80;
+    --blue: #5b5bd6; --blue-tint: #e8e8fc;
+    --red: #d9375e; --green: #2fa36b; --orange: #e08a1e;
+    --field: #f2f3fc; --field-focus: #ffffff; --press: #e4e7f6;
+    --tabbar: rgba(255,255,255,.92); --tabbar-line: rgba(26,28,46,.08);
+    --build-bg: rgba(26,28,46,.06); --ic-a: .16;
+    --ic-teal-fg: #1d8b9e; --ic-green-fg: #2fa36b;
+    --tr-line: #eceefb;
+    --cal-rest: #f5f6fd; --cal-other: #f5f6fd;
+    --cal-stat: #fdeaef; --cal-make: #e9f0fe;
+    --sp-tile: #f2f3fc; --sp-bar-bg: #e2e5f5;
+    --warn-bg: #fdf2de; --warn-fg: #8a5a00;
+    --crit-bg: #fdeaef; --crit-fg: #a8213f;
+    --pop-shadow: 0 2px 8px rgba(26,28,46,.14); --focus-ring: inset 0 0 0 2px #5b5bd6;
+    --on-accent: #ffffff;
+    --hero-bg: linear-gradient(140deg, #6d6df0, #a068e8);
+    --hero-fg: #ffffff;
+    --hero-fg-2: rgba(255,255,255,.82); --hero-fg-3: rgba(255,255,255,.76);
+    --hero-fg-4: rgba(255,255,255,.66);
+    --hero-line: rgba(255,255,255,.26);
+    --hero-empty-bg: rgba(0,0,0,.16); --hero-empty-fg: rgba(255,255,255,.94);
+    --hero-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%23ffffff' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --sel-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%235b5bd6' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --title-w: 600; --hero-w: 700;
+    /* 大圆角 + 柔和阴影，卡片浮在带色调的底上 */
+    --r-card: 22px; --r-tile: 16px; --r-inner: 14px; --r-bar: 6px; --r-mini: 4px;
+    --card-shadow: 0 4px 18px rgba(26,28,46,.07); --card-border: none;
+    --pad-x: 18px; --row-h: 50px; --row-pad-y: 12px; --group-gap: 24px; --app-pad-t: 24px;
+    --sep-inset: 18px; --sep-h: 1px;
+    --icon-size: 34px;
+    --font-num: var(--font);
+    --title-tr: none; --title-ls: normal;
+    --hero-size: 36px; --hero-ls: -.5px;
+  }
+  /* 图标块接近圆形、变大 */
+  :root[data-theme="soft"] .row-icon { border-radius: 50%; font-size: 14px; }
+  :root[data-theme="soft"] .row-icon svg { width: 19px; height: 19px; }
+  :root[data-theme="soft"] .group-title { padding-left: calc(var(--pad-x) + 4px); font-size: 13px; }
+  /* 按钮与分段控件变胶囊 */
+  :root[data-theme="soft"] .row-action { border-radius: 999px; }
+  :root[data-theme="soft"] .seg { border-radius: 999px; padding: 3px; }
+  :root[data-theme="soft"] .seg button { border-radius: 999px; }
+  :root[data-theme="soft"] .fl-del { border-radius: 999px; }
+  :root[data-theme="soft"] .chev { opacity: .5; }
+  /* hero 圆角要跟卡片一致，否则渐变会在圆角外露出直角 */
+  :root[data-theme="soft"] .hero { border-radius: var(--r-card); }
+  :root[data-theme="soft"] .row-input, :root[data-theme="soft"] .row-select {
+    border-radius: var(--r-inner);
+  }
+  :root[data-theme="soft"] .tab-btn.active svg {
+    background: var(--blue-tint); border-radius: 999px; padding: 2px 8px;
+    width: 32px; box-sizing: content-box;
+  }
+
+  /* ── Hello Kitty ──
+     这套不只换皮：汇总行重排成居中大数字、hero 改居中构图、
+     tab bar 变悬浮胶囊岛、分类选格 4 列改 2 列、分隔线改点线。
+     DOM 没动过，全部靠 CSS 重排。 */
+  :root[data-theme="kitty"] {
+    color-scheme: light;
+    --bg: #fff5f8; --card: #ffffff;
+    --sep: #ffc0d5; --sep-soft: #ffdde8;
+    --label: #4a2b36; --label-2: #8f5f70; --label-3: #c9a3b0; --group-cap: #c8203f;
+    /* 交互色就是主粉；红留给负数，但要跟主粉区分得开，所以用更深的莓红 */
+    /* 这个粉比装饰用的 #ff6fa5 深一档：--blue 有 12 处是当文字色用的
+       （tab 选中态、分类选中、日期下拉），亮粉在白底上只有 2.60:1。
+       调到 4.62:1 后反超默认主题的 4.02。亮粉仍留在 hero 渐变与蝴蝶结上。 */
+    --blue: #d6336c; --blue-tint: #ffe8f1;
+    --red: #d81e4a; --green: #35a86b; --orange: #ff9a3c;
+    --field: #fff0f5; --field-focus: #ffffff; --press: #ffe0ec;
+    --tabbar: rgba(255,255,255,.96); --tabbar-line: #ffc0d5;
+    --build-bg: rgba(232,69,95,.10); --ic-a: .16;
+    --ic-teal-fg: #2fa3b8; --ic-green-fg: #35a86b;
+    --tr-line: #ffeef4;
+    --cal-rest: #fff0f5; --cal-other: #fff8fb;
+    --cal-stat: #ffe3e8; --cal-make: #eef4ff;
+    --sp-tile: #fff0f5; --sp-bar-bg: #ffdde8;
+    --warn-bg: #fff3df; --warn-fg: #8a5a00;
+    --crit-bg: #ffe3e8; --crit-fg: #b81a3f;
+    --pop-shadow: 0 2px 8px rgba(232,69,95,.18);
+    --focus-ring: inset 0 0 0 2px #ff6fa5;
+    --on-accent: #ffffff;
+    --hero-bg: linear-gradient(160deg, #ff8fbb 0%, #ff6fa5 55%, #f0537f 100%);
+    --hero-fg: #ffffff;
+    --hero-fg-2: rgba(255,255,255,.88); --hero-fg-3: rgba(255,255,255,.82);
+    --hero-fg-4: rgba(255,255,255,.72);
+    --hero-line: rgba(255,255,255,.34);
+    --hero-empty-bg: rgba(255,255,255,.22); --hero-empty-fg: #ffffff;
+    --hero-chev: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%279%27%20height%3D%276%27%20viewBox%3D%270%200%209%206%27%3E%3Cpath%20d%3D%27M1%201.2%204.5%204.6%208%201.2%27%20fill%3D%27none%27%20stroke%3D%27%23ffffff%27%20stroke-width%3D%271.8%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E");
+    --sel-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%23ff6fa5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    --title-w: 700; --hero-w: 800;
+    /* 圆到底：卡片、图标、按钮全部大圆角 */
+    --r-card: 26px; --r-tile: 18px; --r-inner: 999px; --r-bar: 999px; --r-mini: 999px;
+    --card-shadow: 0 4px 16px rgba(232,69,95,.10);
+    --card-border: 2px solid #ffdde8;
+    --pad-x: 18px; --row-h: 52px; --row-pad-y: 11px; --group-gap: 26px; --app-pad-t: 22px;
+    /* 悬浮岛 67px 高 + 10px 底部偏移 = 77px，84px 只剩 7px 余量，给到 104px */
+    --app-pad-b: 104px;
+    --sep-inset: 18px; --sep-h: 1px;
+    --icon-size: 34px;
+    /* 圆体字：系统里能拿到的圆润字体优先 */
+    --font: "SF Pro Rounded", -apple-system, "Hiragino Maru Gothic ProN",
+            "Yuanti SC", "Rounded Mplus 1c", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+    --font-num: var(--font);
+    --title-tr: none; --title-ls: normal;
+    --hero-size: 38px; --hero-ls: -.5px;
+  }
+
+  /* 页面底纹：波点。放在 body 上而不是 .app，滚动时铺满整屏 */
+  :root[data-theme="kitty"] body {
+    background-image: radial-gradient(circle, rgba(255,111,165,.14) 1.6px, transparent 1.7px);
+    background-size: 18px 18px;
+  }
+
+  /* 分组标题：前面挂一个蝴蝶结。
+     .group-title 是 flex + space-between，::before 会变成第一个 flex item
+     把标题挤到右边，所以必须绝对定位、脱离 flex 流。 */
+  :root[data-theme="kitty"] .group-title {
+    position: relative; padding-left: calc(var(--pad-x) + 26px); font-size: 13px;
+  }
+  :root[data-theme="kitty"] .group-title::before {
+    content: ""; position: absolute; left: var(--pad-x); top: 1px;
+    width: 20px; height: 12px;
+    background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2720%27%20height%3D%2712%27%20viewBox%3D%270%200%2034%2020%27%3E%3Cpath%20d%3D%27M14.6%2010%20L3%202.6%20Q-0.4%2010%203%2017.4%20Z%27%20fill%3D%27%23ff6fa5%27%2F%3E%3Cpath%20d%3D%27M19.4%2010%20L31%202.6%20Q34.4%2010%2031%2017.4%20Z%27%20fill%3D%27%23ff6fa5%27%2F%3E%3Ccircle%20cx%3D%2717%27%20cy%3D%2710%27%20r%3D%273.6%27%20fill%3D%27%23e8455f%27%2F%3E%3C%2Fsvg%3E") no-repeat center / contain;
+  }
+
+  /* 分隔线改成粉色点线 */
+  :root[data-theme="kitty"] .row::before {
+    background: none;
+    border-top: 1px dotted var(--sep);
+  }
+
+  /* 图标块变圆 */
+  :root[data-theme="kitty"] .row-icon { border-radius: 50%; font-size: 14px; }
+  :root[data-theme="kitty"] .row-icon svg { width: 19px; height: 19px; }
+
+  /* ══ 布局重排 1：汇总行 ══
+     默认是「左边标签、右边数值」的一行。这里改成
+     「图标在上 / 标签居中 / 数值另起一行放大居中」的一块。 */
+  /* 汇总行：整行加粉底、金额放大，但**留在数值列里**。
+     试过居中放大，结果是全页最重要的那个数跳出了右对齐的列，
+     没法再和上面几行竖着比大小 —— 强调不该以打断对齐为代价。 */
+  :root[data-theme="kitty"] .row.strong {
+    margin: 8px; padding: 14px 12px;
+    background: var(--blue-tint); border-radius: 20px;
+  }
+  :root[data-theme="kitty"] .row.strong::before { display: none; }
+  :root[data-theme="kitty"] .row.strong .row-value {
+    font-size: 21px; letter-spacing: -.5px;
+  }
+
+  /* ══ 布局重排 2：hero 改居中构图 ══
+     顶部标签、金额、副标题全部居中，金额上方压一个大蝴蝶结。
+     hero 内部那一行仍保持左右分列，否则读不出「项目 → 金额」的对应。 */
+  /* hero 保持左对齐：年月选择器是可交互控件，位置要稳定在右上角，
+     不该跟着标签长度在中间浮动。蝴蝶结改成左对齐压在金额上方。 */
+  :root[data-theme="kitty"] .hero-value::before {
+    content: ""; display: block; width: 40px; height: 24px; margin: 2px 0 2px;
+    background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%2744%27%20height%3D%2726%27%20viewBox%3D%270%200%2034%2020%27%3E%3Cpath%20d%3D%27M14.6%2010%20L3%202.6%20Q-0.4%2010%203%2017.4%20Z%27%20fill%3D%27%23ffffff%27%2F%3E%3Cpath%20d%3D%27M19.4%2010%20L31%202.6%20Q34.4%2010%2031%2017.4%20Z%27%20fill%3D%27%23ffffff%27%2F%3E%3Ccircle%20cx%3D%2717%27%20cy%3D%2710%27%20r%3D%273.6%27%20fill%3D%27%23ffd2e2%27%2F%3E%3C%2Fsvg%3E") no-repeat center / contain;
+  }
+
+  /* ══ 布局重排 3：tab bar 变悬浮胶囊岛 ══
+     原来是通栏贴底的条。改成左右留边、整体圆角的浮岛。
+     safe-area 从内边距挪到 bottom 偏移，否则岛会被撑得很高。 */
+  :root[data-theme="kitty"] .tab-bar {
+    left: 12px; right: 12px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    border: 2px solid var(--sep); border-radius: 999px;
+    padding: 6px 6px; padding-bottom: 6px;
+    box-shadow: 0 6px 20px rgba(232,69,95,.16);
+  }
+  :root[data-theme="kitty"] .tab-btn { font-size: 10px; }
+  :root[data-theme="kitty"] .tab-btn.active svg {
+    background: var(--blue-tint); border-radius: 999px;
+    width: 34px; padding: 2px 7px; box-sizing: content-box;
+  }
+
+  /* ══ 布局重排 4：分类选格 4 列 → 2 列 ══
+     格子少一半、每个更大，配合圆润风格；同时图标与文字并排而不是上下叠。 */
+  /* 分类格保持 4 列：原注释写明「一行四个，够容纳 8 个支出分类而不用滚动」，
+     改成两列会把最高频的记账入口纵向拉长一倍。只改外形不改列数。 */
+  :root[data-theme="kitty"] .cat-cell {
+    border-radius: 18px; background: var(--field); border-width: 2px;
+  }
+
+
+  /* 按钮与分段控件：胶囊 */
+  /* .row-action 本身就是一个 .row，会被上面的 flex-wrap 波及；
+     再加上 width:auto 就塌成了一个小圆球。这里明确给回整行宽度。 */
+  :root[data-theme="kitty"] .row-action {
+    font-weight: 700; color: var(--on-accent); background: var(--blue);
+    border-radius: 999px; padding: 13px;
+    width: calc(100% - 16px); margin: 8px;
+  }
+  :root[data-theme="kitty"] .row-action:active { background: #f0537f; }
+  :root[data-theme="kitty"] .row-action.danger { background: var(--red); }
+  :root[data-theme="kitty"] .seg { border-radius: 999px; padding: 3px; }
+  :root[data-theme="kitty"] .seg button { border-radius: 999px; }
+  :root[data-theme="kitty"] .fl-del { border-radius: 999px; }
+
+  /* hero 圆角要跟卡片一致，否则渐变会在圆角外露出直角 */
+  :root[data-theme="kitty"] .hero { border-radius: var(--r-card); }
+  /* 支出日历：格子更圆，量条是胶囊 */
+  :root[data-theme="kitty"] .sp-cell { border-radius: 16px; }
+  :root[data-theme="kitty"] .sp-grid { gap: 5px; }
+
+  /* ═══════════════════════════════════════════════════════════
+     宽输入表单
+
+     默认是「左标签 / 右输入」，而 .row-input 最宽 168px、400px 断点里
+     只剩 128px —— 备注允许输 20 字，128px 只看得见 8 个汉字。
+
+     两种解法，按主题的密度取向分：
+       纸墨 / 杂志 / 圆润 / Kitty —— 密度松，输入换行独占一整行；
+       终端 —— 高密度是它的前提，多占一行等于推翻自己，改成留在同行吃满剩余宽度。
+
+     用 flex-wrap 而不是 :has()：老 WebView（Capacitor 壳里那个）也吃得下。
+     下拉不参与换行 —— 它的值很短（「18 日」），独占一行只会在上一行留白，
+     而且 select 通栏后文字仍靠右，各浏览器还不一致。
+     ═══════════════════════════════════════════════════════════ */
+  :root[data-theme="paper"] .row,
+  :root[data-theme="editorial"] .row,
+  :root[data-theme="soft"] .row,
+  :root[data-theme="kitty"] .row { flex-wrap: wrap; }
+
+  :root[data-theme="paper"] .row > .row-input,
+  :root[data-theme="paper"] .row > .row-money,
+  :root[data-theme="editorial"] .row > .row-input,
+  :root[data-theme="editorial"] .row > .row-money,
+  :root[data-theme="soft"] .row > .row-input,
+  :root[data-theme="soft"] .row > .row-money,
+  :root[data-theme="kitty"] .row > .row-input,
+  :root[data-theme="kitty"] .row > .row-money {
+    flex-basis: 100%; width: 100%; max-width: none;
+    margin-left: 0; margin-top: 7px;
+  }
+
+  /* 通栏之后左对齐更符合输入习惯，盖掉 .ta-r */
+  :root[data-theme="paper"] .row > .row-input.ta-r,
+  :root[data-theme="paper"] .row > .row-money .row-input,
+  :root[data-theme="editorial"] .row > .row-input.ta-r,
+  :root[data-theme="editorial"] .row > .row-money .row-input,
+  :root[data-theme="soft"] .row > .row-input.ta-r,
+  :root[data-theme="soft"] .row > .row-money .row-input,
+  :root[data-theme="kitty"] .row > .row-input.ta-r,
+  :root[data-theme="kitty"] .row > .row-money .row-input { text-align: left; }
+
+  /* .row-action 本身就是一个 .row，会被上面的 flex-wrap 波及后塌成一小块，
+     按钮必须显式不换行。 */
+  :root[data-theme="paper"] .row-action,
+  :root[data-theme="editorial"] .row-action,
+  :root[data-theme="soft"] .row-action,
+  :root[data-theme="kitty"] .row-action { flex-wrap: nowrap; }
+
+  /* 终端：不换行，改成吃满剩余宽度。同样拿到宽输入，但不多占一行。 */
+  :root[data-theme="terminal"] .row > .row-input,
+  :root[data-theme="terminal"] .row > .row-money {
+    max-width: none; flex: 1 1 auto; width: auto;
+  }
+  :root[data-theme="terminal"] .row > .row-input.ta-r { text-align: right; }
 </style>
 </head>
 <body>
@@ -761,7 +1331,7 @@
         <div class="row"><span class="row-label">日期</span>
           <select class="row-select" id="flDay"></select></div>
         <div class="row"><span class="row-label">备注</span>
-          <input type="text" class="row-input" id="flNote" placeholder="选填" maxlength="20" style="max-width:168px;text-align:right;"></div>
+          <input type="text" class="row-input ta-r" id="flNote" placeholder="选填" maxlength="20"></div>
         <button class="row row-action" onclick="addFlow()">添加</button>
       </div>
       <div class="group-foot" id="flAddHint">选分类、填金额即可。记录只存在本机，可在「薪资计算」页底部导出备份。</div>
@@ -810,7 +1380,7 @@
           <div class="row"><span class="row-label">每月几号</span>
             <select class="row-select" id="recDay"></select></div>
           <div class="row"><span class="row-label">名称</span>
-            <input type="text" class="row-input" id="recNote" placeholder="如 房租" maxlength="20" style="max-width:168px;text-align:right;"></div>
+            <input type="text" class="row-input ta-r" id="recNote" placeholder="如 房租" maxlength="20"></div>
           <button class="row row-action" onclick="addRecurring()">保存模板</button>
         </div>
       </div>
@@ -1204,6 +1774,16 @@
           <li><strong>年终奖</strong>：÷12 查按月换算税率表定税率，再按 <span class="highlight-num">全额×税率−速算扣除数</span> 计税，不并入累计预扣</li>
         </ul>
       </div>
+    </div>
+
+    <!-- 外观主题 -->
+    <div class="group">
+      <div class="group-title">外观<span>只影响显示，不影响计算</span></div>
+      <div class="card list icons">
+        <div class="row"><span class="row-icon ic-purple">格</span><span class="row-label">界面风格</span>
+          <select class="row-select" id="themePick" onchange="onThemeChange()"></select></div>
+      </div>
+      <div class="group-foot" id="themeFoot"></div>
     </div>
 
     <!-- 数据备份 -->
@@ -2431,6 +3011,60 @@ var FORM_FIELDS = ['baseSalary', 'bonus', 'subsidy', 'yearEndBonus',
 
 // 城市选择是跨年度的设定，不该跟着「计税年度」一起切换，单独存
 var CITY_KEY = 'salary-city';
+
+// ── 界面主题 ──
+// 键名不带 salary- 前缀：这是本机的观感偏好，而不是账目数据。
+// restoreBackup 会先清空所有 salary- 前缀的键，如果主题也用那个前缀，
+// 恢复一份别人发来的备份就会把你的主题一起改掉 —— 那不是数据，是显示偏好。
+var THEME_KEY = 'sc-theme';
+
+// name 会显示在下拉里，desc 是选中后底部那行说明。
+// key 为 '' 表示不打 data-theme，也就是默认的 iOS 风格（含自动深浅）。
+var THEMES = [
+  { key: '',          name: 'iOS 原生（跟随系统深浅）', desc: '浅灰分组底 + 白色圆角卡片，跟随系统自动切换浅色/深色。' },
+  { key: 'paper',     name: '纸墨',  desc: '米白纸底、发丝线通栏、衬线数字。零阴影零圆角，像一份排得讲究的对账单。' },
+  { key: 'terminal',  name: '终端',  desc: '近黑底、全局等宽、方角网格、高信息密度。这套本身是深色，不跟随系统偏好。' },
+  { key: 'editorial', name: '杂志',  desc: '高对比黑白 + 单一朱红，超大金额，结果卡是一整块黑。' },
+  { key: 'kitty',     name: 'Hello Kitty', desc: '波点粉底、蝴蝶结、圆体字。汇总行重排成居中大数字，底部导航是悬浮胶囊岛，分类选格由四列改两列。' },
+  { key: 'soft',      name: '圆润',  desc: '大圆角、柔和阴影、带色调的浅色面，胶囊按钮，密度偏松。' },
+];
+
+function themeByKey(k) {
+  for (var i = 0; i < THEMES.length; i++) if (THEMES[i].key === k) return THEMES[i];
+  return THEMES[0];
+}
+
+// 应用主题。不重载页面 —— 所有差异都在 CSS 里，改个属性就够了。
+function applyTheme(key) {
+  var t = themeByKey(key);
+  if (t.key) document.documentElement.setAttribute('data-theme', t.key);
+  else document.documentElement.removeAttribute('data-theme');
+
+  // 手机浏览器地址栏/状态栏的颜色。直接读回计算后的 --bg，
+  // 免得在 JS 里再抄一份颜色、日后改主题时两处不一致。
+  var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+  var meta = document.querySelector('meta[name="theme-color"]');
+  if (meta && bg) meta.setAttribute('content', bg);
+
+  var foot = $('themeFoot');
+  if (foot) foot.textContent = t.desc;
+}
+
+function onThemeChange() {
+  var k = selVal('themePick');
+  lsSet(THEME_KEY, k);
+  applyTheme(k);
+}
+
+function buildThemeSelect() {
+  var sel = $('themePick');
+  if (!sel) return;
+  sel.innerHTML = THEMES.map(function (t) {
+    return '<option value="' + t.key + '">' + t.name + '</option>';
+  }).join('');
+  var saved = lsGet(THEME_KEY, '');
+  sel.value = themeByKey(saved).key;
+}
 
 // 首次打开（该年度还没有存档）时的初始值，其余字段一律留空。
 // 比例给法定下限 5%：这是全国通行的最低档，比猜一个高比例安全。
@@ -4181,6 +4815,12 @@ function syncMonthSelect() {
 
   // 城市要先于 loadForm 定下来：比例选项是按城市生成的，
   // 顺序反了的话 loadForm 写入的比例会被随后重建的 options 冲掉。
+  // <head> 里那段已经把 data-theme 打上了（为了首屏不闪）。
+  // 这里补两件它做不到的事：把下拉选中项对齐，以及同步 theme-color ——
+  // <head> 阶段样式表还没解析，getComputedStyle 读不到 --bg。
+  buildThemeSelect();
+  applyTheme(lsGet(THEME_KEY, ''));
+
   buildCitySelect();
   var savedCity = lsGet(CITY_KEY, '');
   $('cityPick').value =
