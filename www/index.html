@@ -1379,6 +1379,22 @@ var CUSTOM_CITY_DEFAULT = {
   hf: { min: 0, max: 999999, rateMin: 0.05, rateMax: 0.12 },
 };
 
+// 重建档位下拉时，保留用户已选的档位。
+//
+// 抽成纯函数是为了能测。原先 buildMedTierSelect 直接 sel.innerHTML = ...，
+// select 会静默回落到第一项：init 里 loadForm() 正确恢复了「二档」，
+// 紧接着的 applyCity()（4137 行）重建 options 又把它冲成「一档」，
+// 随后 calc() 里的 saveForm 再把一档写回存档 —— 用户的选择永久丢失，
+// 深圳基数 10,000 时社保每月多扣 150 元（个人费率 2% vs 0.5%）。
+// 隔壁 buildRateSelect 一直是记住 prev 再还原的，这里漏了。
+function keepTier(prevKey, tiers) {
+  if (!tiers || !tiers.length) return '';
+  for (var i = 0; i < tiers.length; i++) {
+    if (tiers[i].key === prevKey) return prevKey;
+  }
+  return tiers[0].key;   // 换了城市、旧档位不存在时回到首档
+}
+
 // 按城市与基数算社保。base 为本人工资，逐险种夹到各自上下限后计费。
 // medTierKey 只对有分档的城市（深圳）生效，用它替换医疗那一项的费率。
 function socialInsOf(city, base, medTierKey) {
@@ -2122,20 +2138,56 @@ function billFingerprint(e) {
 // 空格被换成不换行空格、前后粘上「以下是我的备份：」之类的说明文字。
 // 这些都不该让恢复失败，解析前先规整一遍。
 //
-// 只规整结构性字符：弯引号在 JSON 里必然是被改坏的直引号。
-// 不碰全角逗号冒号 —— 那些在备注里是合法内容，动了会改坏用户数据。
-function sanitizeBackupText(raw) {
+// fixQuotes 默认开，但调用方应该走 parseBackupText 的分级策略而不是直接开着用。
+//
+// 「弯引号在 JSON 里必然是被改坏的直引号」这个假设是错的：中文备注里的弯引号
+// （买了“小米”充电器）本来就是合法内容，替换成直引号反而会把一份完好的备份
+// 改成解析失败 —— 而且诊断信息此时括号配平、_magic 也在，给不出任何线索。
+// 所以引号替换只能当最后手段，见 parseBackupText。
+function sanitizeBackupText(raw, fixQuotes) {
+  if (fixQuotes === undefined) fixQuotes = true;
   var s = String(raw == null ? '' : raw);
   s = s.replace(/^﻿/, '');                        // BOM
   s = s.replace(/[​-‍⁠]/g, '');         // 零宽字符
   s = s.replace(/ /g, ' ');                       // 不换行空格
-  s = s.replace(/[“”„″＂]/g, '"');   // 弯双引号 / 全角引号
-  s = s.replace(/[‘’‛′]/g, "'");   // 弯单引号
+  // 以上三项是无损的：这些字符在合法 JSON 的结构里不该出现，在字符串值里
+  // 也没有表意作用。下面两项有损，只在前面几级都解析失败时才做。
+  if (fixQuotes) {
+    s = s.replace(/[“”„″＂]/g, '"');   // 弯双引号 / 全角引号
+    s = s.replace(/[‘’‛′]/g, "'");   // 弯单引号
+  }
 
   // 前后可能粘着说明文字，截取最外层的花括号
   var a = s.indexOf('{'), b = s.lastIndexOf('}');
   if (a >= 0 && b > a) s = s.slice(a, b + 1);
   return s.trim();
+}
+
+// 分级解析备份文本：从「完全不动」到「动引号」逐级放宽，第一个成功的胜出。
+//
+// 顺序很重要。备份被聊天工具改坏是偶发的，而备注里带中文弯引号是常态；
+// 无条件替换引号等于用一个偶发场景的修复，换来一个常态场景的损坏。
+// 先原样试一次，正常导出的备份就永远不会被碰。
+//
+// 返回 { ok, data, how }。how 说明用到了第几级，恢复成功后提示里会带上，
+// 用到 'quote' 说明这份备份确实在传输中被改过，值得让用户知道。
+function parseBackupText(raw) {
+  var levels = [
+    { how: 'raw',   text: String(raw == null ? '' : raw).trim() },
+    { how: 'clean', text: sanitizeBackupText(raw, false) },
+    { how: 'quote', text: sanitizeBackupText(raw, true) },
+  ];
+  for (var i = 0; i < levels.length; i++) {
+    if (!levels[i].text) continue;
+    try {
+      var v = JSON.parse(levels[i].text);
+      // 数组、数字、null 都能通过 JSON.parse，但都不是备份
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        return { ok: true, data: v, how: levels[i].how, text: levels[i].text };
+      }
+    } catch (e) { /* 换下一级 */ }
+  }
+  return { ok: false, data: null, how: 'failed', text: levels[2].text };
 }
 
 // 解析失败时给出可定位的信息，而不是笼统一句「解析失败」。
@@ -2927,16 +2979,15 @@ function applyPasteImport() {
 
 // 文件与粘贴两条路走同一套恢复逻辑。成功返回 true（此时页面即将重载）
 function restoreBackup(text) {
-  var cleaned = sanitizeBackupText(text);
-  var payload;
-  try { payload = JSON.parse(cleaned); }
-  catch (e) {
-    alert('这段内容解析不了。\n\n' + backupDiagnosis(text, cleaned) +
+  var parsed = parseBackupText(text);
+  if (!parsed.ok) {
+    alert('这段内容解析不了。\n\n' + backupDiagnosis(text, parsed.text) +
           '\n\n最常见的原因是复制时没选全 —— 备份是一整段很长的文本，' +
           '中间断开就用不了。回到导出面板点「复制全部内容」按钮，' +
           '不要手动拖选。');
     return false;
   }
+  var payload = parsed.data;
 
   if (!payload || payload._magic !== BACKUP_MAGIC || !payload.data) {
     alert('这不是本应用的备份内容。');
@@ -4021,10 +4072,13 @@ function buildMedTierSelect(city) {
   var sel = $('medTier');
   if (!city.medTiers) { row.style.display = 'none'; sel.innerHTML = ''; return; }
   row.style.display = '';
+  // 先记下当前选择再重建，否则 select 回落到首项 —— 详见 keepTier 的注释
+  var prev = sel.value;
   sel.innerHTML = city.medTiers.map(function(t) {
     return '<option value="' + t.key + '">' + t.name + ' · 个人 ' +
            (t.rate * 100).toFixed(t.rate * 100 % 1 ? 1 : 0) + '%</option>';
   }).join('');
+  sel.value = keepTier(prev, city.medTiers);
 }
 
 // 不缴公积金时，基数与两个比例都没意义，直接收起来

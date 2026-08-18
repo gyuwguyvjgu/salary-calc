@@ -13,7 +13,7 @@ if (!m) {
 var EXPORTS = ['CITIES', 'CITY_KEYS', 'CUSTOM_CITY_DEFAULT', 'socialInsOf', 'housingFundOf',
   'TAX_ANNUAL', 'TAX_MONTHLY', 'HOLIDAYS', 'HOLIDAY_YEARS',
   'BASIC_DEDUCTION', 'MONTH_HOURS', 'YEB_CRITICAL', 'getDayMeta', 'taxOf', 'getMonthHoursFrom',
-  'fmtTight',
+  'fmtTight', 'keepTier',
   'accumulateTax', 'absenceDeductOf', 'otPayOf', 'isEmployedYear',
   'yebTaxOf', 'yebBracket', 'daysInMonth', 'r2', 'ymd',
   'yebCompare', 'grossForNet',
@@ -22,7 +22,7 @@ var EXPORTS = ['CITIES', 'CITY_KEYS', 'CUSTOM_CITY_DEFAULT', 'socialInsOf', 'hou
   'parseBill', 'billFingerprint',
   'xmlUnescape', 'colRefToIndex', 'parseSharedStrings', 'excelSerialToDate',
   'looksLikeSerialDate', 'parseSheetXml',
-  'sanitizeBackupText', 'backupDiagnosis',
+  'sanitizeBackupText', 'parseBackupText', 'backupDiagnosis',
   'annualSummary', 'overtimeSummary', 'budgetStatus', 'budgetTotal',
   'filterFlow', 'recurringToAdd'];
 
@@ -543,6 +543,21 @@ near(szT2.items[1].amount, 50.00,  '深圳二档 10,000×0.5% = 50.00');
 near(szT1.items[0].amount, szT2.items[0].amount, '换医保档次不影响养老');
 near(szT1.items[2].amount, szT2.items[2].amount, '换医保档次不影响失业');
 ok(szT2.total < szT1.total, '二档个人合计低于一档');
+
+// ── 7b-2. 重建档位下拉时必须保住用户选的档 ──
+// 回归：init 里 loadForm() 恢复了 t2，紧接着 applyCity() 重建 options 把它冲成 t1，
+// 再由 calc() 的 saveForm 写回存档 —— 选择永久丢失，且社保每月多扣 150 元。
+eq(L.keepTier('t2', SZ.medTiers), 't2', '已选二档，重建后仍是二档');
+eq(L.keepTier('t1', SZ.medTiers), 't1', '已选一档，重建后仍是一档');
+eq(L.keepTier('', SZ.medTiers), 't1', '没有旧选择时落到首档');
+eq(L.keepTier('t9', SZ.medTiers), 't1', '旧档位在新城市不存在时落到首档');
+eq(L.keepTier(null, SZ.medTiers), 't1', 'null 当作没有旧选择');
+eq(L.keepTier('t2', null), '', '无分档城市（广州/北京/上海）返回空');
+eq(L.keepTier('t2', []), '', '空档位列表返回空');
+// 把这条 bug 的代价直接写成断言：冲档 = 每月多扣 150 元
+near(L.socialInsOf(SZ, 10000, L.keepTier('t2', SZ.medTiers)).total, szT2.total,
+     '按 keepTier 的结果算社保，得到的是二档的 870.00 而不是一档的 1,020.00');
+near(szT1.total - szT2.total, 150.00, '被冲成一档的代价：基数 10,000 时每月多扣 150 元');
 
 // ── 7c. 各险种按自己的上下限分别夹逼 ──
 var szHigh = L.socialInsOf(SZ, 999999, 't1');
@@ -1073,6 +1088,43 @@ var cleanedCn = L.sanitizeBackupText(cn);
 ok(cleanedCn.indexOf('，') >= 0, '全角逗号保留');
 ok(cleanedCn.indexOf('：') >= 0, '全角冒号保留');
 eq(JSON.parse(cleanedCn).data.note, '午饭，加饮料：奶茶', '含中文标点的备注内容完好');
+
+// ── 分级解析：引号替换必须是最后手段 ──
+// 回归：备注里的中文弯引号（买了“小米”充电器）本来是合法内容，
+// 无条件替换成直引号会把一份完好的备份改成解析失败，而诊断此时
+// 括号配平、_magic 也在，给不出任何线索。
+var quoted = '{"_magic":"salary-calc-backup","data":{"note":"买了' + LQ + '小米' + RQ + '充电器"}}';
+ok(!!JSON.parse(quoted), '前提：这份备份本来就是合法 JSON');
+var pq = L.parseBackupText(quoted);
+ok(pq.ok, '带中文弯引号的备份能恢复（曾经整份解析失败）');
+eq(pq.how, 'raw', '原样就能解析，不该走到引号替换那一级');
+eq(pq.data.data.note, '买了' + LQ + '小米' + RQ + '充电器', '备注里的弯引号原样保留，没被改成直引号');
+// 而真正被聊天工具改坏的备份仍要能救回来
+var broken = good.split('"').join(LQ);
+var pb = L.parseBackupText(broken);
+ok(pb.ok, '结构引号被改成弯引号的备份仍能恢复');
+eq(pb.how, 'quote', '这种才该走到引号替换那一级');
+eq(pb.data._magic, 'salary-calc-backup', '救回来的内容正确');
+// 中间那一级：需要无损清理，但仍然不该动引号
+var pz = L.parseBackupText('这是我的备份：' + NL2 + quoted + NL2 + '以上');
+ok(pz.ok, '前后粘了说明文字 + 备注含弯引号，截取花括号后能解析');
+eq(pz.how, 'clean', '只做无损清理，不升级到引号替换');
+ok(pz.data.data.note.indexOf(LQ) >= 0, '走到第二级时弯引号备注依然完好');
+// BOM 连清理都不用：String.trim() 把 U+FEFF 当空白，第一级就过了
+var pbom = L.parseBackupText(BOM + quoted);
+ok(pbom.ok, 'BOM + 弯引号备注仍可恢复');
+ok(pbom.data.data.note.indexOf(LQ) >= 0, 'BOM 情况下弯引号也完好');
+// 彻底坏掉的仍然报失败，而不是返回半个对象
+ok(!L.parseBackupText('这不是备份').ok, '非 JSON 文本判为失败');
+ok(!L.parseBackupText('').ok, '空文本判为失败');
+ok(!L.parseBackupText(null).ok, 'null 判为失败');
+ok(!L.parseBackupText('[1,2,3]').ok, '数组不是备份对象');
+ok(!L.parseBackupText('123').ok, '数字不是备份对象');
+ok(!L.parseBackupText('null').ok, 'null 字面量不是备份对象');
+// fixQuotes=false 时确实不动引号
+ok(L.sanitizeBackupText(quoted, false).indexOf(LQ) >= 0, 'fixQuotes=false 保留弯引号');
+ok(L.sanitizeBackupText(quoted, true).indexOf(LQ) < 0, 'fixQuotes=true 才替换');
+eq(L.sanitizeBackupText(good), good, '省略 fixQuotes 时保持旧行为（默认替换）');
 
 // ── 诊断信息 ──
 eq(L.backupDiagnosis('', ''), '内容是空的，可能没粘上。', '空内容有专门提示');
