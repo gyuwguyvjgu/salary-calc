@@ -1060,6 +1060,17 @@
     --hero-fg-4: rgba(255,255,255,.72);
     --hero-line: rgba(255,255,255,.34);
     --hero-empty-bg: rgba(255,255,255,.22); --hero-empty-fg: #ffffff;
+    /* 按钮：粉白底 + 深玫红字。
+       底色浅到 #fff0f6 之后，它和白卡的对比只有 1.10:1 —— 光靠底色
+       已经读不出「这是个按钮」，所以必须配一道粉色描边来界定边界。
+       字色 #c92a63 压在 #fff0f6 上是 4.77:1，过 4.5 的正文阈值。 */
+    --btn-bg:   #fff0f6;
+    --btn-line: #ffbed9;
+    --btn-fg:   #c92a63;
+    --btn-press: #ffe0ee;
+    /* 危险操作（取消导入、删除）仍偏红，同样是浅底深字：6.23:1 */
+    --btn-danger-bg: #ffe4e8;
+    --btn-danger-fg: #a8152f;
     --hero-chev: url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%27%20width%3D%279%27%20height%3D%276%27%20viewBox%3D%270%200%209%206%27%3E%3Cpath%20d%3D%27M1%201.2%204.5%204.6%208%201.2%27%20fill%3D%27none%27%20stroke%3D%27%23ffffff%27%20stroke-width%3D%271.8%27%20stroke-linecap%3D%27round%27%20stroke-linejoin%3D%27round%27%2F%3E%3C%2Fsvg%3E");
     --sel-chev: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='6' viewBox='0 0 9 6'%3E%3Cpath d='M1 1.2 4.5 4.6 8 1.2' fill='none' stroke='%23ff6fa5' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     --title-w: 700; --hero-w: 800;
@@ -1161,13 +1172,17 @@
   /* 按钮与分段控件：胶囊 */
   /* .row-action 本身就是一个 .row，会被上面的 flex-wrap 波及；
      再加上 width:auto 就塌成了一个小圆球。这里明确给回整行宽度。 */
+  /* 粉白底 + 深玫红字。padding 从 13px 收到 11px，把 2px 描边让出来，
+     否则按钮会比原来高 4px。 */
   :root[data-theme="kitty"] .row-action {
-    font-weight: 700; color: var(--on-accent); background: var(--blue);
-    border-radius: 999px; padding: 13px;
+    font-weight: 700; color: var(--btn-fg); background: var(--btn-bg);
+    border: 2px solid var(--btn-line); border-radius: 999px; padding: 11px;
     width: calc(100% - 16px); margin: 8px;
   }
-  :root[data-theme="kitty"] .row-action:active { background: #f0537f; }
-  :root[data-theme="kitty"] .row-action.danger { background: var(--red); }
+  :root[data-theme="kitty"] .row-action:active { background: var(--btn-press); }
+  :root[data-theme="kitty"] .row-action.danger {
+    background: var(--btn-danger-bg); border-color: #ffb8c2; color: var(--btn-danger-fg);
+  }
   :root[data-theme="kitty"] .seg { border-radius: 999px; padding: 3px; }
   :root[data-theme="kitty"] .seg button { border-radius: 999px; }
   :root[data-theme="kitty"] .fl-del { border-radius: 999px; }
@@ -1300,6 +1315,14 @@
       </div>
     </div>
 
+    <!-- 外观主题 -->
+    <div class="group">
+      <div class="group-title">外观<span>只影响显示，不影响计算</span></div>
+      <div class="card">
+        <div class="theme-grid" id="themeGrid"></div>
+      </div>
+      <div class="group-foot" id="themeFoot"></div>
+    </div>
     <button class="btn-apply" onclick="switchTab('salary')">查看薪资计算</button>
   </div><!-- /tab-calendar -->
 
@@ -1803,14 +1826,6 @@
       </div>
     </div>
 
-    <!-- 外观主题 -->
-    <div class="group">
-      <div class="group-title">外观<span>只影响显示，不影响计算</span></div>
-      <div class="card">
-        <div class="theme-grid" id="themeGrid"></div>
-      </div>
-      <div class="group-foot" id="themeFoot"></div>
-    </div>
 
     <!-- 数据备份 -->
     <div class="group">
