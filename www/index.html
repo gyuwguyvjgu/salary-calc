@@ -1905,7 +1905,7 @@
 // 改动时请保持这一性质，否则 npm test 会失败。
 
 // ═══════════════════════════════════════════════════════════
-//  参数区（截至 2026-08 现行口径）
+//  参数区（截至 2026-11 现行口径）
 // ═══════════════════════════════════════════════════════════
 
 // ── 各城市社保 / 公积金参数 ──
@@ -1926,19 +1926,20 @@
 var CITIES = {
   sz: {
     name: '深圳',
-    effective: '养老/失业 2025.7 起 · 医疗 2026 自然年度',
+    effective: '养老 2026.7 起 · 失业/工伤/公积金下限随最低工资 2026.9 起 · 医疗 2026 自然年度',
     si: [
-      { key: 'pension',      name: '养老', rate: 0.08,  company: 0.16,  min: 4775, max: 27549 },
+      { key: 'pension',      name: '养老', rate: 0.08,  company: 0.16,  min: 5521, max: 27603 },
       { key: 'medical',      name: '医疗', rate: 0.02,  company: 0.06,  min: 6727, max: 33633 },
-      { key: 'unemployment', name: '失业', rate: 0.002, company: 0.008, min: 2520, max: 44265 },
-      { key: 'injury',       name: '工伤', rate: 0,     company: 0.004, min: 2520, max: 44265 },
+      { key: 'unemployment', name: '失业', rate: 0.002, company: 0.008, min: 2700, max: 48471 },
+      { key: 'injury',       name: '工伤', rate: 0,     company: 0.004, min: 2700, max: 48471 },
     ],
     // 一档按本人工资，二档个人费率低但报销范围窄；三档已并入二档口径
     medTiers: [
       { key: 't1', name: '一档', rate: 0.02,  company: 0.06  },
       { key: 't2', name: '二档', rate: 0.005, company: 0.015 },
     ],
-    hf: { min: 2520, max: 48471, rateMin: 0.05, rateMax: 0.12 },
+    // 上限 = 2025 年度深圳在岗职工月均工资 16157×3；下限随最低工资（2026.9.1 起 2700）
+    hf: { min: 2700, max: 48471, rateMin: 0.05, rateMax: 0.12 },
   },
 
   gz: {
@@ -2312,7 +2313,7 @@ function otPayOf(base, hours) {
 // 里的按月覆盖），不能只看三个默认输入框。曾经就是只看默认值：
 // 底薪/绩效/补贴全留空、只在逐月表里逐月填奖金时被判成未在职，社保公积金
 // 强制归零，当月明细里社保写着 ¥0.00，而同一屏的社保卡片仍按真实基数显示
-// 「深圳 521.58/月」，前后矛盾，全年到手高估约 7 千、个税还多算 777.10。
+// 「深圳 581.62/月」，前后矛盾，全年到手高估约 7.7 千、个税还多算 859.94。
 function isEmployedYear(base, monthlyPays) {
   if (base > 0) return true;
   return (monthlyPays || []).some(function(p) {

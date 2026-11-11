@@ -92,19 +92,19 @@ ok(L.TAX_ANNUAL[1].qd !== L.TAX_MONTHLY[1].qd, '两张表未被混用（2520 ≠
 
 // ═══ 2. 累计预扣预缴 ═══
 section('2. 累计预扣预缴');
-var SI = 521.58, HFP = L.CITIES.sz.hf.min * 0.05;   // 最低基数社保 + 公积金 2520×5%
+var SI = 581.62, HFP = L.CITIES.sz.hf.min * 0.05;   // 最低基数社保 581.62（养老 5521×8%+医疗 6727×2%+失业 2700×0.2%）+ 公积金 2700×5%
 var flat = [];
 for (var i = 0; i < 12; i++) flat.push(15000);
 var rows = L.accumulateTax(flat, SI, HFP, 0, true);
 
-near(rows[0].tax, 280.57, '月薪 15,000：1 月预扣 280.57');
-near(rows[3].tax, 379.25, '4 月跨入 10% 档，税额跳升至 379.25');
+near(rows[0].tax, 278.50, '月薪 15,000：1 月预扣 278.50');
+near(rows[3].tax, 357.85, '4 月跨入 10% 档，税额跳升至 357.85');
 ok(rows[11].tax > rows[0].tax, '12 月税额高于 1 月（累计预扣的正常表现）');
 
 var sumTax = rows.reduce(function(a, r) { return a + r.tax; }, 0);
 var annualTaxable = 15000 * 12 - 5000 * 12 - (SI + HFP) * 12;
 near(sumTax, L.taxOf(annualTaxable, L.TAX_ANNUAL), '全年逐月税额之和 = 按年度一次性算的税额', 0.02);
-near(sumTax, 8702.90, '全年个税合计 8,702.90');
+near(sumTax, 8620.06, '全年个税合计 8,620.06');
 
 var mono = true;
 for (var j = 1; j < 12; j++) if (rows[j].tax < rows[j - 1].tax - 0.02) mono = false;
@@ -132,7 +132,7 @@ near(onLeave[0].tax, 0, '当月无收入时不产生个税');
 // ── 在职判定：active 这个参数从哪来 ──
 // 曾经写在 calcYear 里、只看三个默认输入框，漏掉「全年逐月明细」的按月覆盖。
 // 于是「底薪/绩效/补贴全留空、只在逐月表里填奖金」被判成未在职，社保公积金
-// 强制归零 —— 明细里社保显示 ¥0.00，而同屏的社保卡片仍写着真实的 521.58/月。
+// 强制归零 —— 明细里社保显示 ¥0.00，而同屏的社保卡片仍写着真实的 581.62/月。
 // 抽成纯函数就是为了让这个判定进得了断言。
 var M12 = function(f) { var a = []; for (var i = 0; i < 12; i++) a.push(f(i + 1)); return a; };
 var ZERO = M12(function() { return { bonus: 0, sub: 0 }; });
@@ -158,10 +158,10 @@ function yearTotals(rows) {
   rows.forEach(function(r, i) { net += gFull[i] - r.si - r.hf - r.tax; tax += r.tax; });
   return { net: net, tax: tax };
 }
-var asIdle = yearTotals(L.accumulateTax(gFull, 521.58, 126, 0, false));
-var asWork = yearTotals(L.accumulateTax(gFull, 521.58, 126, 0, true));
-near(asIdle.net - asWork.net, 6993.86, '判成未在职会把全年到手高估 6,993.86', 0.02);
-near(asIdle.tax - asWork.tax, 777.10, '同时全年个税多算 777.10', 0.02);
+var asIdle = yearTotals(L.accumulateTax(gFull, 581.62, 135, 0, false));
+var asWork = yearTotals(L.accumulateTax(gFull, 581.62, 135, 0, true));
+near(asIdle.net - asWork.net, 7739.50, '判成未在职会把全年到手高估 7,739.50', 0.02);
+near(asIdle.tax - asWork.tax, 859.94, '同时全年个税多算 859.94', 0.02);
 
 // 收入骤降的月份税额按 0 计，且累计已预扣不回冲
 var drop = L.accumulateTax([80000, 3000, 3000], SI, HFP, 0, true);
@@ -538,11 +538,11 @@ section('7. 社保公积金');
 // ── 7a. 深圳（回归断言，沿用改多城市之前的期望值）──
 var SZ = L.CITIES.sz;
 var szMin = L.socialInsOf(SZ, 0, 't1');     // base=0 → 每项都夹到自己的下限
-near(szMin.total, 521.58, '深圳最低基数下社保个人合计 521.58 元/月');
-near(szMin.items[0].amount, 382.00, '深圳养老 4,775×8% = 382.00');
+near(szMin.total, 581.62, '深圳最低基数下社保个人合计 581.62 元/月');
+near(szMin.items[0].amount, 441.68, '深圳养老 5,521×8% = 441.68');
 near(szMin.items[1].amount, 134.54, '深圳医疗一档 6,727×2% = 134.54');
-near(szMin.items[2].amount, 5.04,   '深圳失业 2,520×0.2% = 5.04');
-eq(SZ.hf.min, 2520, '深圳公积金最低基数 = 深圳最低工资 2,520');
+near(szMin.items[2].amount, 5.40,   '深圳失业 2,700×0.2% = 5.40');
+eq(SZ.hf.min, 2700, '深圳公积金最低基数 = 现行最低工资 2,700（2026.9.1 起）');
 eq(SZ.hf.max, 48471, '深圳公积金基数上限 48,471');
 
 // ── 7b. 医保档次只换医疗那一项，其余险种不受影响 ──
@@ -571,9 +571,9 @@ near(szT1.total - szT2.total, 150.00, '被冲成一档的代价：基数 10,000 
 
 // ── 7c. 各险种按自己的上下限分别夹逼 ──
 var szHigh = L.socialInsOf(SZ, 999999, 't1');
-near(szHigh.items[0].amount, L.r2(27549 * 0.08),  '养老封顶按 27,549 计');
+near(szHigh.items[0].amount, L.r2(27603 * 0.08),  '养老封顶按 27,603 计');
 near(szHigh.items[1].amount, L.r2(33633 * 0.02),  '医疗封顶按 33,633 计');
-near(szHigh.items[2].amount, L.r2(44265 * 0.002), '失业封顶按 44,265 计');
+near(szHigh.items[2].amount, L.r2(48471 * 0.002), '失业封顶按 48,471 计');
 
 // ── 7d. 北京医保的固定加收 ──
 var BJ = L.CITIES.bj;
@@ -611,7 +611,7 @@ var hfOn = L.housingFundOf(SZ, 10000, 0.12, 0.05, true);
 near(hfOn.total, 1200, '公积金个人 10,000×12% = 1,200');
 near(hfOn.company, 500, '公积金单位 10,000×5% = 500（两侧比例可不同）');
 near(L.housingFundOf(SZ, 999999, 0.05, 0.05, true).base, 48471, '公积金基数封顶 48,471');
-near(L.housingFundOf(SZ, 1, 0.05, 0.05, true).base, 2520, '公积金基数保底 2,520');
+near(L.housingFundOf(SZ, 1, 0.05, 0.05, true).base, 2700, '公积金基数保底 2,700');
 
 eq(L.MONTH_HOURS, 174, '月计薪工时 21.75×8 = 174');
 eq(L.BASIC_DEDUCTION, 5000, '每月减除费用 5,000');
@@ -664,7 +664,7 @@ ok(true, '不同奖金额度下均能算出结论（交叉点存在: ' + crossFo
 section('9. 反推税前月薪');
 
 // 固定扣款的简单场景
-var FIXED = function() { return { si: 521.58, hf: 2520 * 0.05 }; };
+var FIXED = function() { return { si: 581.62, hf: 2700 * 0.05 }; };
 
 // 缴费基数随工资联动 —— 这才是页面里的真实口径
 var SZ9 = L.CITIES.sz;
